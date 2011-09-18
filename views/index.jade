@@ -1,0 +1,22 @@
+!!! 5
+html
+  head
+    title= title
+    script(type='text/javascript', src='/javascripts/jquery.min.js')
+    script(type='text/javascript', src='/javascripts/underscore-min.js')
+    script(type='text/javascript', src='/javascripts/backbone.js')
+    script(type='text/javascript', src="/socket.io/socket.io.js")
+    script(type='text/javascript', src="/javascripts/math.js")
+    script(type='text/javascript', src="/javascripts/client/simulation.js")
+    script(type='text/javascript', src="/javascripts/client/render.js")
+    script(type='text/javascript', src="/javascripts/client/client.js")
+    link(rel='stylesheet', href='/stylesheets/style.css')
+  body
+    header
+      span.name= Math.round(Math.random() * 0xFFFFFFFF).toString(16)
+    .main
+      canvas.main
+    .debug
+      .world_stats Stats
+      .frame_time Frame time
+    footer
