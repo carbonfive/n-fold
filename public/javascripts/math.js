@@ -28,8 +28,6 @@ vec2.normalize = function(v) {
   return vec2.scale(v, 1.0/vec2.length(v));
 }
 
-
-
 mat2 = {};
 
 mat2.create = function() {

@@ -1,7 +1,7 @@
 !!! 5
 html
   head
-    title= title
+    title n-fold
     script(type='text/javascript', src='/javascripts/jquery.min.js')
     script(type='text/javascript', src='/javascripts/underscore-min.js')
     script(type='text/javascript', src='/javascripts/backbone.js')
@@ -15,7 +15,7 @@ html
     header
       span.name= Math.round(Math.random() * 0xFFFFFFFF).toString(16)
     .main
-      canvas.main
+      canvas.main(width=640,height=480)
     .debug
       .world_stats Stats
       .frame_time Frame time

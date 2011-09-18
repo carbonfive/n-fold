@@ -7,77 +7,85 @@ function entity(opts) {
     rotation: 0,
     rotational_velocity: 0,
     rotational_acceleration: 0,
-    drag: 0,
+    drag_coefficient: 0,
+    debug: false,
 
-    simulate: function(dt) {
+    apply_physics: function(dt) {
       if (vec2.nonzero(this.acceleration)) {
         this.velocity = vec2.add(this.velocity, vec2.scale(this.acceleration, dt));
       }
 
       if (vec2.nonzero(this.velocity)) {
-        var magnitude = vec2.length(this.velocity);
-        var new_magnitude = magnitude * (1.0-this.drag*dt);
-        this.velocity = vec2.scale(this.velocity, new_magnitude/magnitude);
+        if (this.drag_coefficient) {
+          var speed = vec2.length(this.velocity);
+          var drag = vec2.scale(vec2.normalize(this.velocity), -speed*speed*this.drag_coefficient);
+          this.velocity = vec2.add(this.velocity, vec2.scale(drag, dt));
+        }
       }
 
       var new_pos = vec2.add(this.position, vec2.scale(this.velocity, dt));
       this.position = [rangewrap(new_pos[0], nfold.view_width), rangewrap(new_pos[1], nfold.view_height)];
     },
 
-    prerender: function(ctx) {
-      ctx.save();
-      ctx.translate(this.position[0], this.position[1]);
-      ctx.rotate(this.rotation);
+    simulate: function(dt) {},
+
+    rotate: function(theta) {
+      this.rotation += rangewrap(theta, 2*Math.PI);
     },
 
-    render: function() {},
-
-    postrender: function(ctx) {
-      ctx.restore();
+    kill: function() {
+      this.remove_me = true;
     },
+
   }, opts);
 }
 
-function projectile(opts) {
+function Projectile(opts) {
 
-  var radius = Math.random() * 4 + 2;
+  var initial_velocity = 500;
 
-  return _.extend(entity({
-
-    render: function(ctx) {
-      ctx.save();
-      ctx.fillStyle = 'rgba(50,0,0,1)';
-      ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
-      ctx.restore();
+  var o = _.extend(entity({
+    lifespan: 1.0,
+    radius: Math.random() * 4 + 2,
+    age: 0,
+    renderer: Render.projectile,
+    simulate: function(dt) {
+      this.age += dt;
+      if (this.age > this.lifespan) {
+        this.kill();
+      }
     }
-
   }), opts);
+
+  o.velocity = vec2.add(o.velocity, mat2.transform(mat2.rotate(o.rotation), [0, initial_velocity]))
+  return o;
 }
 
-function ship(opts) {
-
-  var radius = 8;
+function Player(opts) {
 
   return _.extend(entity({
+    rotate_speed: 2.0,
+    rotate_speed: 2.0,
+    thrust: 500.0,
+    drag_coefficient: 0,
+    renderer: Render.player,
 
-    drag: 1.0,
+    handle_input: function(input, dt) {
+      if (input.is_pressed(37)) { this.rotate(-this.rotate_speed * dt); }
+      if (input.is_pressed(39)) { this.rotate( this.rotate_speed * dt); }
+      if (input.is_pressed(38)) {
+        this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]);
+      } else {
+        this.acceleration = [0, 0];
+      }
+    },
 
-    render: function(ctx) {
-      ctx.save();
-      ctx.fillStyle = 'white';
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = 'rgba(0,0,0,.5)';
-      ctx.strokeStyle = 'black';
-      ctx.beginPath();
-        ctx.arc(0, 0, radius, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, 1.5*radius);
-        ctx.stroke();
-      ctx.restore();
+    fire: function() {
+      this.sim.add_entity(Projectile({
+        position: this.position,
+        velocity: this.velocity,
+        rotation: this.rotation
+      }));
     }
 
   }), opts);
@@ -123,20 +131,26 @@ function simulation() {
 
   var sim = {
 
-    tick: function() {
+    tick: function(input) {
       var tick_time = (new Date).getTime();
-      dt = tick_time - last_sim_time;
+      var dt = (tick_time - last_sim_time) * .001;
+
       _(world).each(function(o, key) {
-        o.simulate(dt * .001);
+        if (o.local_player) {
+          o.handle_input(input, dt);
+        }
+
+        o.apply_physics(dt);
+        o.simulate(dt);
+
+        if (o.remove_me) { delete world[o.id]; }
       });
-      // move
-      // collide
-      //console.log(tick_time - last_sim_time);
       last_sim_time = tick_time;
     },
 
     add_entity: function(o) {
       world[o.id] = o;
+      o.sim = this;
       return o;
     },
 
