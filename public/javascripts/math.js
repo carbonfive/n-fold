@@ -1,4 +1,4 @@
-function rangewrap(x, max) {
+rangewrap = function(x, max) {
   return (x > max) ? (x - max) : ((x < 0) ? (x + max) : x);
 }
 

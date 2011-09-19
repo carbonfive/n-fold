@@ -18,7 +18,7 @@ Render.ModelRenderer = function(opts) {
   }, opts);
 }
 
-Render.player = Render.ModelRenderer({
+Render.Player = Render.ModelRenderer({
   render: function(o, ctx) {
     var radius = 8;
     ctx.save();
@@ -37,7 +37,7 @@ Render.player = Render.ModelRenderer({
   }
 });
 
-Render.projectile = Render.ModelRenderer({
+Render.Projectile = Render.ModelRenderer({
   render: function(o, ctx) {
     ctx.save();
     ctx.fillStyle = 'red';
@@ -51,8 +51,8 @@ Render.projectile = Render.ModelRenderer({
 function render(sel) {
 
   var debug_dump_template = _.template(
+    'id: <%= id %> ' +
     'pos: [<%= position[0].toFixed(2) %>, <%= position[1].toFixed(2) %>] ' +
-    'vel: [<%= velocity[0].toFixed(2) %>, <%= velocity[1].toFixed(2) %>] ' +
     ''
   );
 
@@ -72,9 +72,10 @@ function render(sel) {
       ctx.fillStyle = nfold.background_color,
       ctx.fillRect(0, 0, nfold.view_width, nfold.view_height);
       _(sim.get_objects()).each(function(o) {
-        o.renderer.prerender(o, ctx);
-        o.renderer.render(o, ctx);
-        o.renderer.postrender(o, ctx);
+        var renderer = Render[o.type];
+        renderer.prerender(o, ctx);
+        renderer.render(o, ctx);
+        renderer.postrender(o, ctx);
 
         if (o.debug) {
           ctx.save();
