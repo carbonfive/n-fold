@@ -6,16 +6,21 @@ html
     script(type='text/javascript', src='/javascripts/extern/underscore-min.js')
     script(type='text/javascript', src='/javascripts/extern/backbone.js')
     script(type='text/javascript', src="/socket.io/socket.io.js")
+
     script(type='text/javascript', src="/javascripts/math.js")
+    script(type='text/javascript', src="/javascripts/input.js")
+    script(type='text/javascript', src="/javascripts/collide.js")
+    script(type='text/javascript', src="/javascripts/entity.js")
     script(type='text/javascript', src="/javascripts/simulation.js")
     script(type='text/javascript', src="/javascripts/render.js")
     script(type='text/javascript', src="/javascripts/client.js")
+
     link(rel='stylesheet', href='/stylesheets/style.css')
   body
     header
       span.name= Math.round(Math.random() * 0xFFFFFFFF).toString(16)
     .main
-      canvas.main(width=640,height=480)
+      canvas(width=640,height=480)
     .debug
       .world_stats Stats
       .frame_time Frame time

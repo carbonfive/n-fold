@@ -2,6 +2,10 @@ rangewrap = function(x, max) {
   return (x > max) ? (x - max) : ((x < 0) ? (x + max) : x);
 }
 
+rangelimit = function(x, min, max) {
+  return (x > max) ? max : ((x < min) ? min : x);
+}
+
 vec2 = {};
 
 vec2.add = function(v0, v1) {
@@ -10,6 +14,10 @@ vec2.add = function(v0, v1) {
 
 vec2.scale = function(v, x) {
   return [v[0]*x, v[1]*x];
+}
+
+vec2.inverse = function(v) {
+  return [-v[0], -v[1]];
 }
 
 vec2.nonzero = function(v) {

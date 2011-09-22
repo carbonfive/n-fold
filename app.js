@@ -43,38 +43,41 @@ app.get('/', function(req, res){
   });
 });
 
+
 io.sockets.on('connection', function(socket) {
 
-  socket.emit('sync', _.map(sim.get_objects(), function(o) {
-    return o.serialize();
-  }));
+  var network_message = function(msg, fn) {
+    socket.on(msg, function(data) {
+      // console.log("Server received", msg);
+      fn(data);
+    });
+  };
 
-  socket.on('hello', function(data) {
+  socket.emit('sync', _.map(sim.get_objects(), function(o) { return o.serialize(); }));
+
+  network_message('hello', function(data) {
     socket.set('client_id', data);
-    console.log("Client ID ", data);
+    console.log("Client " + data + " connected.");
   });
 
-  socket.on('disconnect', function() {
-    socket.get('client_id', function(err, cid) {
-      var player = sim.find_entity(cid);
-      if (player) {
-        player.kill();
-      }
+  network_message('disconnect', function() {
+    socket.get('client_id', function(err, client_id) {
+      sim.kill(client_id);
+      io.sockets.emit('kill', client_id);
     });
   });
 
-  socket.on('entity_update', function(data) {
+  network_message('entity_update', function(data) {
     sim.update_entity(data);
     socket.broadcast.emit('entity_update', data);
   });
 
-  socket.on('new_entities', function(data) {
-    _.each(data.entities, function(opts) {
+  network_message('new_entities', function(data) {
+    _.each(data, function(opts) {
       opts.local = false;
       sim.add_entity.call(sim, opts);
     });
     socket.broadcast.emit('new_entities', data);
-    console.log(data);
   });
 });
 
