@@ -75,69 +75,63 @@ describe('collide.AABB_cwh', function() {
 describe('QuadTree()', function() {
 
   var quadtree = null;
-  var aabbs = [];
+  var objects = [];
+
+  function all_objects(qt) {
+    var all = [];
+    qt.each_object(function(o) { all.push(o); })
+    return all;
+  }
 
   beforeEach(function() {
     quadtree = collide.QuadTree(collide.AABB_cwh([0, 0], 128, 128));
-    debugger;
-    aabbs = [
+    objects = [
       quadtree.insert(collide.AABB_cwh([ 10,  10], 2.5, 2.5)),
       quadtree.insert(collide.AABB_cwh([ 10, -10], 2.5, 2.5)),
       quadtree.insert(collide.AABB_cwh([-10, -10], 2.5, 2.5)),
       quadtree.insert(collide.AABB_cwh([-10,  10], 2.5, 2.5))
     ]
-    debugger;
   });
 
   describe('.each_object()', function() {
-    var aabb = null;
-
     it('iterates over all the collision objects with a null collide', function() {
       var all = []
-      quadtree.each_object(null, function(o) { all.push(o); });
+      quadtree.each_object(function(o) { all.push(o); });
       expect(all.length).toEqual(4);
     });
 
     it('only returns objects within the collide object', function() {
       var intersecting = [];
-      quadtree.each_object(collide.AABB_cwh([0, 10], 100, 0), function(o) { intersecting.push(o); });
+      quadtree.each_object(function(o) { intersecting.push(o); }, collide.AABB_cwh([0, 10], 100, 0));
       expect(intersecting.length).toEqual(2);
-      expect(intersecting).toContain(aabbs[0]);
-      expect(intersecting).toContain(aabbs[3]);
+      expect(intersecting).toContain(objects[0]);
+      expect(intersecting).toContain(objects[3]);
     });
 
     it('doesnt return the same object more than once', function() {
       quadtree.insert(collide.AABB_cwh([0, 0], 5, 5));
-      var all = []
-      quadtree.each_object(null, function(o) { all.push(o); });
-      expect(all.length).toEqual(5);
+      expect(all_objects(quadtree).length).toEqual(5);
     });
   });
 
   describe('.insert()', function() {
     it('adds an object to the world', function() {
-      var found = false;
-      quadtree.each_object(null, function(o) {
-        if (o == aabbs[0]) {
-          found = true;
-        }
-      });
-      expect(found).toBeTruthy();
+      expect(_.include(all_objects(quadtree), objects[0])).toBeTruthy();
     });
   });
 
-  // describe('.remove()', function() {
-  //   beforeEach(function() {
-  //     quadtree.remove(aabbs[3].quadtree_id);
-  //   });
+  describe('.remove()', function() {
+    beforeEach(function() {
+      quadtree.remove(objects[3]);
+    });
 
-  //   it('removes an object from the world', function() {
-  //     expect(quadtree.all_objects()).not.toContain(aabbs[3]);
-  //   });
+    it('removes an object from the world', function() {
+      expect(all_objects(quadtree)).not.toContain(objects[3]);
+    });
 
-  //   it('deletes the quadtree_id property', function() {
-  //     expect(aabbs[3].quadtree_id).toBeFalsy();
-  //   });
-  // });
+    it('deletes the quadtree_id property', function() {
+      expect(objects[3].quadtree_id).toBeFalsy();
+    });
+  });
 
 });
