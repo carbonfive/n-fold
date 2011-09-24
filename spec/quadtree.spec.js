@@ -8,7 +8,6 @@ describe('collide.AABB_cwh', function() {
     aabb = collide.AABB_cwh([0, 0], 2, 2);
   });
 
-
   describe('.AABB()', function() {
     it ('succeeds', function() {
       expect(aabb).not.toBeNull();
@@ -32,43 +31,53 @@ describe('collide.AABB_cwh', function() {
 
 
   describe('.intersects()', function() {
-    it('returns false for non-intersecting bodies', function() {
-      var other = collide.AABB_cwh([10, 0], 1, 1);
-      expect(aabb.intersects(other)).toBeFalsy();
-    });
+    describe('against AABBs', function() {
+      it('is false for non-intersecting bodies', function() {
+        var other = collide.AABB_cwh([10, 0], 1, 1);
+        expect(aabb.intersects(other)).toBeFalsy();
+      });
 
-    it('returns true for barely-intersecting bodies', function() {
-      var other = collide.AABB_cwh([2, 0], 2, 2);
-      expect(aabb.intersects(other)).toBeTruthy();
-    });
+      it('is true for intersecting bodies', function() {
+        var other = collide.AABB_cwh([1, 0], 1, 1);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
 
-    it('returns true for intersecting bodies', function() {
-      var other = collide.AABB_cwh([1, 0], 1, 1);
-      expect(aabb.intersects(other)).toBeTruthy();
-    });
+      it('is true for completely enclosed bodies', function() {
+        var other = collide.AABB_cwh([0, 0], 0.5, 0.5);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
 
-    it('returns true for completely enclosed bodies', function() {
-      var other = collide.AABB_cwh([0, 0], 0.5, 0.5);
-      expect(aabb.intersects(other)).toBeTruthy();
-    });
+      it('is true for completely enclosing bodies', function() {
+        var other = collide.AABB_cwh([0, 0], 2, 2);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
 
-    it('returns true for completely enclosing bodies', function() {
-      var other = collide.AABB_cwh([0, 0], 2, 2);
-      expect(aabb.intersects(other)).toBeTruthy();
-    });
+      it('is true for zero-area bodies', function() {
+        var other = collide.AABB_cwh([0, 0], 0, 0);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
 
-    it('returns true for zero-area bodies', function() {
-      var other = collide.AABB_cwh([0, 0], 0, 0);
-      expect(aabb.intersects(other)).toBeTruthy();
-    });
+      it('is true for AABBs just touching min_x', function() {
+        var other = collide.AABB(-2, -1, -1, 1);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
 
-    it('returns true for problem cases', function() {
-      var bb0 = collide.AABB(-64, 0, 0, 64);
-      var bb1 = collide.AABB(-8.75, -8.75, -11.25, -11.25);
-      expect(bb0.intersects(bb1)).toBeFalsy();
+      it('is true for AABBs just touching min_y', function() {
+        var other = collide.AABB(-1, -2, 1, -1);
+        expect(aabb.intersects(other)).toBeTruthy();
+      });
+
+      it('is false for AABBs just touching max_x', function() {
+        var other = collide.AABB(1, -1, 2, 1);
+        expect(aabb.intersects(other)).toBeFalsy();
+      });
+
+      it('is false for AABBs just touching max_y', function() {
+        var other = collide.AABB(-1, 1, 1, 2);
+        expect(aabb.intersects(other)).toBeFalsy();
+      });
     });
   });
-
 
 });
 

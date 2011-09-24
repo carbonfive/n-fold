@@ -5,7 +5,16 @@ if (typeof(require) === 'function') {
 
 var collide = {};
 
+// Axis-aligned bounding box
+// min values are inclusive, max values are exclusive for intersection tests
 collide.AABB = function(min_x, min_y, max_x, max_y, opts) {
+
+  function _intersects_aabb(aabb) {
+    return min_x <= aabb.max_x &&
+           max_x >  aabb.min_x &&
+           max_y >  aabb.min_y &&
+           min_y <= aabb.max_y;
+  }
 
   return _.extend({
     min_x: min_x, max_x: max_x,
@@ -20,10 +29,7 @@ collide.AABB = function(min_x, min_y, max_x, max_y, opts) {
     },
 
     intersects: function(other) {
-      return min_x <= other.max_x &&
-             max_x >= other.min_x &&
-             max_y >= other.min_y &&
-             min_y <= other.max_y;
+      return _intersects_aabb(other);
     }
   }, opts);
 };
