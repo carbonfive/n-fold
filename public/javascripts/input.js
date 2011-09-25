@@ -14,8 +14,8 @@ var input = {
       }
     }
 
-    $('body').keydown(function(e) { handle_key(e.keyCode, true, keydown_handlers) });
-    $('body').keyup(function(e) { handle_key(e.keyCode, false, keyup_handlers) });
+    $(document).keydown(function(e) { handle_key(e.keyCode, true, keydown_handlers) });
+    $(document).keyup(function(e) { handle_key(e.keyCode, false, keyup_handlers) });
 
     return {
 
