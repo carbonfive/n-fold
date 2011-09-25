@@ -18,11 +18,17 @@ html
     link(rel='stylesheet', href='/stylesheets/style.css')
   body
     header
-      span.name= Math.round(Math.random() * 0xFFFFFFFF).toString(16)
+      span.name Player:#{Math.round(Math.random() * 0xFFFFFFFF).toString(16)}
+      span.fps 
+      button.start enter game
     .main
       canvas(width=640,height=480)
     .debug
-      .world_stats Stats
-      .frame_time Frame time
-      button.start enter game
+      ul
+        li
+          input.debug#debug_quadtrees(name='debug_quadtrees', value='quadtrees', type='checkbox')
+          label(for='debug_quadtrees') QuadTrees
+        li
+          input.debug#debug_collisions(name='debug_collisions', value='collisions', type='checkbox')
+          label(for='debug_collisions') Collisions
     footer

@@ -5,83 +5,144 @@ if (typeof(require) === 'function') {
   entity = require('./entity.js');
 }
 
-var simulation = {};
+var simulation = {
+  SERVER: 0,
+  CLIENT: 1,
+};
 
-var some_object = {
-  entity: {},  // behaviors
-  collide: {},
-  physics: {},
-}
-
-simulation.Simulation = function() {
+simulation.Simulation = function(opts) {
 
   var world = {};
+  var collidees = [];
   var callbacks = [];
   var last_sim_time = 0;
-  var local_player = null;
+  var world_bounds = collide.AABB(0, 0, 640, 480);
 
-  var world_aabb = new collide.AABB({
-    center: [0, 0],
-    width: 1024,
-    height: 1024
-  });
-  var _world_bounds = world_aabb.bounds();
+  collision_handlers = {
+    Player: {
+      Projectile: function(sim, player, projectile) {
+        sim.kill(projectile.id, true);
+      }
+    }
+  }
+
 
   var sim = {
 
-    new_entities: [],
+    type: simulation.SERVER,
+    collide_type: collide.CLIENT,
+    quadtree: null,
+    broadcast_entities: [],
+
+    net: {
+      broadcast: function() {},
+      send: function() {},
+    },
 
     tick: function(input) {
       var start_time = (new Date).getTime();
       var dt = (start_time - last_sim_time) * 0.001;
       var self = this;
 
+      self.quadtree = collide.QuadTree(world_bounds, {
+        max_depth: 8,
+        threshold: 4,
+      });
+
+      collidees = [];
+
       _(world).each(function(o, key) {
-        if (o.local_player) {
+
+        if (input && o.local_player) {
           o.handle_input(input, dt);
         }
 
-        o.apply_physics(dt, this);
+        o.update_physics(dt, self);
         o.simulate(dt);
+        o.update_collide();
 
-        if (o.remove_me) { delete world[o.id]; }
+        if (o.remove_me) {
+          delete world[o.id];
+        } else {
+          self.quadtree.insert(o.collide);
+
+          if ((self.type == simulation.SERVER && (o.flags & entity.COLLIDE_SERVER)) ||
+              (self.type == simulation.CLIENT && (o.flags & entity.COLLIDE_CLIENT))) {
+              collidees.push(o);
+            }
+        }
       });
+
+      self.check_collisions(collidees);
+
+      if (this.broadcast_entities.length > 0) {
+        this.net.broadcast('new_entities', _.map(this.broadcast_entities, function(o) {
+          return o.serialize();
+        }));
+      }
 
       _.each(callbacks, function(cb) {
         cb(self);
       });
 
-      this.new_entities = [];
+      this.broadcast_entities = [];
       last_sim_time = start_time;
+    },
+
+    check_collisions: function(players) {
+      var self = this;
+      _.each(players, function(player) {
+        self.quadtree.each_object(player.collide, function(collidee) {
+          var e = collidee.entity;
+          if (e !== player && e.owner !== player.id) {
+            var handler = collision_handlers[player.type] && collision_handlers[player.type][e.type];
+            if (handler) {
+              // console.log([(new Date).getTime(), player.id, 'collided with', e.id].join(' '));
+              handler(self, player, e);
+            }
+          }
+        });
+      });
     },
 
     add_post_tick_callback: function(cb) {
       callbacks.push(cb);
     },
 
-    create_entity: function(opts, broadcast) {
-      var e = this.add_entity(opts);
-      e.birth();
-      if (broadcast) {
-        this.new_entities.push(o.serialize());
-      }
-      return e;
-    },
-
     find_entity: function(id) {
       return world[id] || null;
     },
 
-    add_entity: function(opts) {
-      o = entity[opts.type](opts);
+    // Creates and inserts, then calls the .spawn() method
+    spawn: function(opts, broadcast) {
+      var e = entity[opts.type](_.extend({ sim: this }, opts));
+
+      if ((this.type === simulation.CLIENT && !(e.flags & entity.SPAWN_CLIENT)) ||
+          (this.type === simulation.SERVER && !(e.flags & entity.SPAWN_SERVER))) {
+        return;
+      }
+
+      world[e.id] = e;
+      e.spawn();
+      if (broadcast) { this.broadcast_entities.push(e); }
+      return e;
+    },
+
+    // Creates and inserts
+    deserialize: function(opts) {
+      o = entity[opts.type](_.extend({ sim: this }, opts));
       world[o.id] = o;
-      o.sim = this;
       return o;
     },
 
-    kill: function(id) {
+    kill: function(id, broadcast) {
       var o = world[id]
-      if (o) { o.kill(); }
+      if (o) {
+        o.kill();
+        if (broadcast) { this.net.broadcast('kill', o.id); }
+      } else {
+        // console.log("Couldn't find object ", id, " to kill");
+      }
     },
 
     update_entity: function(data) {
@@ -93,12 +154,16 @@ simulation.Simulation = function() {
       world = {};
       var self = this;
       _.each(entities, function(opts) {
-        self.add_entity.call(self, opts);
+        self.deserialize(opts);
       });
     },
 
-    get_objects: function(bb) {
+    get_objects: function() {
       return _.values(world);
+    },
+
+    each_entity: function(bounds, fn) {
+      this.quadtree.each_object(bounds, function(o) { fn(o.entity); });
     },
 
     get_world: function() {
@@ -106,7 +171,7 @@ simulation.Simulation = function() {
     },
 
     world_bounds: function() {
-      return _world_bounds;
+      return world_bounds;
     },
 
     get_current: function() {
@@ -115,14 +180,14 @@ simulation.Simulation = function() {
 
     random_location: function() {
       return [
-        Math.random() * (_world_bounds.max_x - _world_bounds.min_x) + _world_bounds.min_x,
-        Math.random() * (_world_bounds.max_y - _world_bounds.min_y) + _world_bounds.min_y
+        Math.random() * (world_bounds.max_x - world_bounds.min_x) + world_bounds.min_x,
+        Math.random() * (world_bounds.max_y - world_bounds.min_y) + world_bounds.min_y
       ];
     }
 
   };
 
-  return sim;
+  return _.extend(sim, opts);
 };
 
 if (typeof(exports) !== 'undefined') {

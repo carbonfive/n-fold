@@ -3,34 +3,49 @@ if (typeof(require) === 'function') {
   require('./math.js');
 }
 
-var collide = {};
+var collide = {
+};
+
+function intersect_aabb_aabb(a, b) {
+  return a.min_x <= b.max_x &&
+         a.max_x >  b.min_x &&
+         a.max_y >  b.min_y &&
+         a.min_y <= b.max_y;
+}
+
 
 // Axis-aligned bounding box
 // min values are inclusive, max values are exclusive for intersection tests
-collide.AABB = function(min_x, min_y, max_x, max_y, opts) {
-
-  function _intersects_aabb(aabb) {
-    return min_x <= aabb.max_x &&
-           max_x >  aabb.min_x &&
-           max_y >  aabb.min_y &&
-           min_y <= aabb.max_y;
-  }
+collide.AABB = function(x0, y0, x1, y1, opts) {
 
   return _.extend({
-    min_x: min_x, max_x: max_x,
-    min_y: min_y, max_y: max_y,
+    flags: 0x0,
     collide_type: 'aabb',
-
-    bounds: function() {
-      return {
-        min_x: min_x, max_x: max_x,
-        min_y: min_y, max_y: max_y
-      };
-    },
+    min_x: x0,
+    max_x: x1,
+    min_y: y0,
+    max_y: y1,
 
     intersects: function(other) {
-      return _intersects_aabb(other);
+      return intersect_aabb_aabb(this, other);
+    },
+
+    update: function(x0, y0, x1, y1) {
+      this.min_x = x0;
+      this.max_x = x1;
+      this.min_y = y0;
+      this.max_y = y1;
+    },
+
+    update_cwh: function(c, w, h) {
+      this.update(
+        c[0] - w*0.5,
+        c[1] - h*0.5,
+        c[0] + w*0.5,
+        c[1] + h*0.5
+      );
     }
+
   }, opts);
 };
 
@@ -111,13 +126,17 @@ collide.QuadTree = function(extents, opts) {
     children: [],
     depth: 0,
     extents: extents,
-    max_depth: 1,
+    max_depth: 4,
     objects: [],
     parent: null,
-    threshold: 2,
+    threshold: 4,
 
-    each_object: function(fn, col) {
+    each_object: function(col, fn) {
       _each_object(this, {}, col || extents, fn);
+    },
+
+    each_node: function(col, fn) {
+      _each_node(this, col || extents, fn);
     },
 
     insert: function(o) {
@@ -138,12 +157,12 @@ collide.QuadTree = function(extents, opts) {
 
     remove: function(obj) {
       var removed = null;
-      this.each_object(function(o, qt) {
+      this.each_object(obj.collide, function(o, qt) {
         if (o === obj) {
           removed = o;
           _remove_object(qt, o);
         }
-      }, obj);
+      });
       if (removed) { delete obj.quadtree_id; }
     },
 

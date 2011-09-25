@@ -9,7 +9,9 @@ var app = module.exports = express.createServer();
 var io = require('socket.io').listen(app);
 var _ = require('./public/javascripts/extern/underscore-min.js');
 var simulation = require('./public/javascripts/simulation.js');
-var sim = simulation.Simulation();
+var sim = simulation.Simulation({ type: simulation.SERVER });
+
+var DEBUG_NET = false;
 
 // Configuration
 //
@@ -43,17 +45,25 @@ app.get('/', function(req, res){
   });
 });
 
+sim.net.broadcast = function(msg, data) {
+  if (DEBUG_NET && msg !== 'entity_update') { console.log('SEND: %s, %j', msg, data); }
+  io.sockets.emit(msg, { data: data, broadcast: false });
+}
 
 io.sockets.on('connection', function(socket) {
 
   var network_message = function(msg, fn) {
-    socket.on(msg, function(data) {
-      // console.log("Server received", msg);
-      fn(data);
+    socket.on(msg, function(payload) {
+      payload = payload || {};
+      fn(payload.data);
+      if (DEBUG_NET && msg !== 'entity_update') { console.log('RECV: %s, %j', msg, payload.data); }
+      if (payload.broadcast) {
+        socket.broadcast.emit(msg, payload);
+      }
     });
   };
 
-  socket.emit('sync', _.map(sim.get_objects(), function(o) { return o.serialize(); }));
+  socket.emit('sync', { data: _.map(sim.get_objects(), function(o) { return o.serialize(); })});
 
   network_message('hello', function(data) {
     socket.set('client_id', data);
@@ -62,37 +72,30 @@ io.sockets.on('connection', function(socket) {
 
   network_message('disconnect', function() {
     socket.get('client_id', function(err, client_id) {
-      sim.kill(client_id);
-      io.sockets.emit('kill', client_id);
+      sim.kill(client_id, true);
     });
   });
 
   network_message('entity_update', function(data) {
     sim.update_entity(data);
-    socket.broadcast.emit('entity_update', data);
   });
 
   network_message('new_entities', function(data) {
-    _.each(data, function(opts) {
-      opts.local = false;
-      sim.add_entity.call(sim, opts);
-    });
-    socket.broadcast.emit('new_entities', data);
+    _.each(data, function(opts) { sim.deserialize(opts); });
   });
 });
 
-var last_loop_time = 0;
-
-function loop() {
-  var loop_start = (new Date).getTime();
-  sim.tick({});
-  var loop_end = (new Date).getTime();
-  schedule_loop(loop_end - loop_start);
-  last_loop_time = loop_end;
+function timebox(fn, cb) {
+  var st = (new Date).getTime();
+  fn();
+  var et = (new Date).getTime();
+  cb(et - st);
 }
 
-function schedule_loop(loop_time) {
-  setTimeout(loop, Math.max(20 - loop_time, 0));
+function loop() {
+  timebox(function() { sim.tick(); }, function(simulation_time) {
+    setTimeout(loop, Math.max(20 - simulation_time, 0));
+  });
 }
 
 loop();

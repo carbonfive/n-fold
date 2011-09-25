@@ -3,51 +3,83 @@ if (typeof(require) === 'function') {
   require('./math.js');
 }
 
-var entity = {};
+var entity = {
+  MOVE_SERVER:      0x0001,
+  SIMULATE_SERVER:  0x0002,
+  COLLIDE_SERVER:   0x0004,
+  MOVE_CLIENT:      0x0008,
+  SIMULATE_CLIENT:  0x0010,
+  COLLIDE_CLIENT:   0x0020,
+  SPAWN_SERVER:     0x0040,
+  SPAWN_CLIENT:     0x0080,
+
+  VISIBLE:          0x0010,
+  PHYSICAL:         0x0020,
+};
+
+var physics = {
+
+  standard: function(dt, sim) {
+    with (this) {
+      var world_bounds = sim.world_bounds();
+      if (vec2.nonzero(acceleration)) {
+        velocity = vec2.add(velocity, vec2.scale(acceleration, dt));
+      }
+
+      if (vec2.nonzero(velocity)) {
+        if (drag_coefficient) {
+          var speed = vec2.length(velocity);
+          var drag = vec2.scale(vec2.normalize(velocity), -speed*speed*drag_coefficient);
+          velocity = vec2.add(velocity, vec2.scale(drag, dt));
+        }
+
+        var new_pos = vec2.add(position, vec2.scale(velocity, dt));
+        position = [
+          rangelimit(new_pos[0], world_bounds.min_x, world_bounds.max_x - 0.00001),
+          rangelimit(new_pos[1], world_bounds.min_y, world_bounds.max_y - 0.00001)
+        ];
+
+        if (position[0] == world_bounds.min_x || position[0] == world_bounds.max_x) {
+          velocity[0] = 0;
+        }
+        if (position[1] == world_bounds.min_y || position[1] == world_bounds.max_y) {
+          velocity[1] = 0;
+        }
+      }
+    }
+  }
+
+};
 
 entity.Entity = function(opts) {
 
-  return _.extend({
+  var obj = {};
 
-    id: Math.round(Math.random() * 0xFFFFFFFF).toString(16),
+  return _.extend(obj, {
+
+    id: (opts.type || 'Entity') + ':' + Math.round(Math.random() * 0xFFFFFFFF).toString(16),
     type: 'Entity',       // entity
-    local: true,          // entity
-    position: [320, 240], // physics
-    velocity: [0, 0],     // physics
-    acceleration: [0, 0], // physics
-    rotation: 0,          // physics
-    drag_coefficient: 0,  // physics
-    radius: 0,            // collide
+
+    flags: 0,
+
+    // physics
+    position: [320, 240],
+    velocity: [0, 0],
+    acceleration: [0, 0],
+    rotation: 0,
+    drag_coefficient: 0,
+    update_physics: physics.standard,
+
     debug: false,
 
-    apply_physics: function(dt, sim) {
-      with (this) {
-        var world_bounds = sim.world_bounds();
-        if (vec2.nonzero(acceleration)) {
-          velocity = vec2.add(velocity, vec2.scale(acceleration, dt));
-        }
-
-        if (vec2.nonzero(velocity)) {
-          if (drag_coefficient) {
-            var speed = vec2.length(velocity);
-            var drag = vec2.scale(vec2.normalize(velocity), -speed*speed*drag_coefficient);
-            velocity = vec2.add(velocity, vec2.scale(drag, dt));
-          }
-
-          var new_pos = vec2.add(position, vec2.scale(velocity, dt));
-          position = [
-            rangelimit(new_pos[0], world_bounds.min_x, world_bounds.max_x),
-            rangelimit(new_pos[1], world_bounds.min_y, world_bounds.max_y)
-          ];
-
-          if (position[0] == world_bounds.min_x || position[0] == world_bounds.max_x) {
-            velocity[0] = 0;
-          }
-          if (position[1] == world_bounds.min_y || position[1] == world_bounds.max_y) {
-            velocity[1] = 0;
-          }
-        }
-      }
+    // collision stuff
+    radius: 0,
+    collide: collide.AABB_cwh([320, 240], 0, 0, {
+      entity: obj,
+      flags: entity.PHYSICAL | entity.VISIBLE,
+    }),
+    update_collide: function() {
+      this.collide.update_cwh(this.position, this.radius*2, this.radius*2);
     },
 
     simulate: function(dt) {},
@@ -56,16 +88,17 @@ entity.Entity = function(opts) {
       this.rotation += rangewrap(theta, 2*Math.PI);
     },
 
-    birth: function() {},
+    spawn: function() {},
 
     kill: function() {
       this.remove_me = true;
     },
 
     position_data: function() {
+      var self = this;
       with (this) {
         return {
-          id: id,
+          id: self.id,
           position: position,
           velocity: velocity,
           acceleration: acceleration,
@@ -98,18 +131,61 @@ entity.Projectile = function(opts) {
   var o = _.extend(entity.Entity({
     type: 'Projectile',
     lifespan: 2.0,
-    radius: 4,
+    radius: 1,
     age: 0,
+    flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER,
     simulate: function(dt) {
       this.age += dt;
       if (this.age > this.lifespan) {
         this.kill();
       }
     },
-    birth: function() {
+
+    spawn: function() {
       this.velocity = vec2.add(o.velocity, mat2.transform(mat2.rotate(o.rotation), [0, initial_velocity]))
+    },
+
+    kill: function() {
+      this.remove_me = true;
+      this.sim.spawn({ type: 'Explosion', position: this.position }, false);
     }
+
   }), opts);
+
+  return o;
+};
+
+
+entity.Explosion = function(opts) {
+
+  var initial_lifespan = Math.random() * 0.75 + 0.25;
+  var initial_radius = Math.random() * 20;
+
+  var o = _.extend(entity.Entity({
+    type: 'Explosion',
+    ttl: initial_lifespan,
+    radius: initial_radius,
+    rotation: Math.random() * Math.PI * 2,
+
+    flags: entity.SPAWN_CLIENT,
+
+    simulate: function(dt) {
+      with (this) {
+        ttl -= dt;
+        if (ttl <= 0) {
+          kill();
+        } else {
+          radius = (ttl / initial_lifespan) * initial_radius;
+        }
+      }
+    },
+
+  }), opts);
+
+  o.collide = collide.AABB_cwh(o.position, o.radius*2, o.radius*2, {
+    flags: entity.VISIBLE,
+    entity: o
+  });
 
   return o;
 };
@@ -123,6 +199,8 @@ entity.Player = function(opts) {
     thrust: 500.0,
     drag_coefficient: 0.01,
 
+    flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT,
+
     handle_input: function(input, dt) {
       if (input.is_pressed(37)) { this.rotate(-this.rotate_speed * dt); }
       if (input.is_pressed(39)) { this.rotate( this.rotate_speed * dt); }
@@ -134,8 +212,9 @@ entity.Player = function(opts) {
     },
 
     fire: function() {
-      this.sim.create_entity({
+      this.sim.spawn({
         type: 'Projectile',
+        owner: this.id,
         position: this.position,
         velocity: this.velocity,
         rotation: this.rotation

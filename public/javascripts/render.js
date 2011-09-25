@@ -68,10 +68,21 @@ Render.Player = Render.ModelRenderer({
 Render.Projectile = Render.ModelRenderer({
   render: function(o, ctx) {
     ctx.save();
-    ctx.fillStyle = 'red';
+    ctx.fillStyle = '#888';
     ctx.beginPath();
-      ctx.arc(0, 0, o.radius, 0, Math.PI * 2);
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
       ctx.fill();
+    ctx.restore();
+  }
+});
+
+Render.Explosion = Render.ModelRenderer({
+  render: function(o, ctx) {
+    ctx.save();
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 2;
+    var half_radius = o.radius * 0.5;
+    ctx.strokeRect(-o.radius*0.5, -o.radius*0.5, o.radius, o.radius);
     ctx.restore();
   }
 });
@@ -98,47 +109,50 @@ function render(sel) {
   canvas.height = height;
 
   return {
+    width: width,
+    height: height,
+    viewport: collide.AABB(0, 0, width, height),
+
     render: function(sim) {
       ctx.save();
       ctx.fillStyle = nfold.background_color,
-      ctx.fillRect(0, 0, nfold.view_width, nfold.view_height);
+      ctx.fillRect(0, 0, width, height);
 
-      // view transform
-      var view_object = sim.get_current();
-      if (view_object) {
-        ctx.translate.apply(ctx, vec2.inverse(view_object.position));
-        ctx.translate(width*0.5, height*0.5);
-      }
+      var view = this.viewport;
+      // ctx.translate(-view.min_x, -view.min_y);
 
-      var bounds = sim.world_bounds();
       ctx.beginPath();
-      ctx.strokeStyle = '#f0f0f0';
-      ctx.lineWidth = 32;
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.lineWidth = 1;
 
-      for (var x = bounds.min_x + 100; x < bounds.max_x; x += 100) {
-        ctx.moveTo(x, bounds.min_y);
-        ctx.lineTo(x, bounds.max_y);
+      for (var x = (view.min_x - view.min_x % 50); x < view.max_x; x += 50) {
+        ctx.moveTo(x, this.viewport.min_y);
+        ctx.lineTo(x, this.viewport.max_y);
       }
-      for (var y = bounds.min_y + 100; y < bounds.max_y; y += 100) {
-        ctx.moveTo(bounds.min_x, y);
-        ctx.lineTo(bounds.max_x, y);
+      for (var y = (view.min_y - view.min_y % 50); y < view.max_y; y += 50) {
+        ctx.moveTo(this.viewport.min_x, y);
+        ctx.lineTo(this.viewport.max_x, y);
       }
       ctx.stroke();
 
-      _(sim.get_objects()).each(function(o) {
+      var render_count = 0;
+      sim.each_entity(this.viewport, function(o) {
         var renderer = Render[o.type];
         renderer.prerender(o, ctx);
         renderer.render(o, ctx);
         renderer.postrender(o, ctx);
+        render_count += 1;
+      });
+      ctx.restore();
+    },
 
-        if (o.debug) {
-          ctx.save();
-          ctx.fillStyle = 'red';
-          ctx.textAlign = 'center';
-          ctx.translate.apply(ctx, o.position);
-          ctx.fillText(debug_dump_template(o), 0, 20);
-          ctx.restore();
-        }
+    render_bounding_boxes: function() {
+      ctx.save();
+      ctx.translate(-this.viewport.min_x, -this.viewport.min_y);
+      ctx.strokeStyle = 'red';
+      ctx.lineWidth = 0.5;
+      _.each(arguments, function(aabb) {
+        ctx.strokeRect(aabb.min_x, aabb.min_y, aabb.max_x - aabb.min_x, aabb.max_y - aabb.min_y);
       });
       ctx.restore();
     }

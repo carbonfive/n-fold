@@ -19,17 +19,6 @@ describe('collide.AABB_cwh', function() {
   });
 
 
-  describe('.bounds()', function() {
-    it('returns correct bounds', function() {
-      var bounds = aabb.bounds();
-      expect(bounds.min_x).toEqual(-1);
-      expect(bounds.max_x).toEqual(1);
-      expect(bounds.min_y).toEqual(-1);
-      expect(bounds.max_y).toEqual(1);
-    });
-  });
-
-
   describe('.intersects()', function() {
     describe('against AABBs', function() {
       it('is false for non-intersecting bodies', function() {
@@ -88,7 +77,7 @@ describe('QuadTree()', function() {
 
   function all_objects(qt) {
     var all = [];
-    qt.each_object(function(o) { all.push(o); })
+    qt.each_object(null, function(o) { all.push(o); })
     return all;
   }
 
@@ -105,13 +94,13 @@ describe('QuadTree()', function() {
   describe('.each_object()', function() {
     it('iterates over all the collision objects with a null collide', function() {
       var all = []
-      quadtree.each_object(function(o) { all.push(o); });
+      quadtree.each_object(null, function(o) { all.push(o); });
       expect(all.length).toEqual(4);
     });
 
     it('only returns objects within the collide object', function() {
       var intersecting = [];
-      quadtree.each_object(function(o) { intersecting.push(o); }, collide.AABB_cwh([0, 10], 100, 0));
+      quadtree.each_object(collide.AABB_cwh([0, 10], 100, 0), function(o) { intersecting.push(o); });
       expect(intersecting.length).toEqual(2);
       expect(intersecting).toContain(objects[0]);
       expect(intersecting).toContain(objects[3]);

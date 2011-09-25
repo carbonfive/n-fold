@@ -9,7 +9,7 @@
 .main canvas {
   width: 640px;
   height: 480px;
-  border: 1px solid #666;
+  outline: 1px solid #666;
 }
 
 body {
