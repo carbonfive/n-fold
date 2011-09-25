@@ -16,7 +16,7 @@ simulation.Simulation = function(opts) {
   var collidees = [];
   var callbacks = [];
   var last_sim_time = 0;
-  var world_bounds = collide.AABB(0, 0, 640, 480);
+  var world_bounds = collide.AABB(0, 0, 1024, 1024);
 
   collision_handlers = {
     Player: {

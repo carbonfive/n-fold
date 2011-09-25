@@ -1,6 +1,7 @@
 nfold = {
-  background_color: '#fff',
-  loop_interval: 10,
+  // background_color: '#fff',
+  background_color: '#222',
+  loop_interval: 20,
   render_qudtree: false,
 
   debug: {
@@ -12,9 +13,6 @@ nfold = {
 
 $(function() {
 
-  var ROTATE_LEFT = 37;
-  var ROTATE_RIGHT = 39;
-  var ROTATE_FIRE = 38;
   var client_id = $('span.name').text();
 
   var r = render('.main canvas');
@@ -113,7 +111,7 @@ $(function() {
     loop_start_time = (new Date).getTime();
     sim.tick(im);
     if (player) {
-      // r.viewport.update_cwh(player.position, r.width, r.height);
+      r.viewport.update_cwh(player.position, r.width, r.height);
     }
     r.render(sim);
 

@@ -7,18 +7,18 @@ Render.ModelRenderer = function(opts) {
     prerender: function(o, ctx) {
       ctx.save();
       ctx.translate.apply(ctx, o.position);
-      if (o.type === 'Player') {
-        ctx.fillStyle = '#888';
-        ctx.textAlign = 'center';
-        ctx.fillText(o.id +
-                     '(' +
-                     o.position[0].toFixed(1) +
-                     ',' +
-                     o.position[1].toFixed(1) + 
-                     ') ' +
-                     vec2.length(o.velocity).toFixed(1)
-                     , 0, 20);
-      }
+      // if (o.type === 'Player') {
+      //   ctx.fillStyle = '#888';
+      //   ctx.textAlign = 'center';
+      //   ctx.fillText(o.id +
+      //                '(' +
+      //                o.position[0].toFixed(1) +
+      //                ',' +
+      //                o.position[1].toFixed(1) + 
+      //                ') ' +
+      //                vec2.length(o.velocity).toFixed(1)
+      //                , 0, 20);
+      // }
       if (Render.debug_collisions) {
         ctx.strokeStyle = 'red';
         var r = o.radius;
@@ -41,7 +41,7 @@ Render.Player = Render.ModelRenderer({
     ctx.save();
       ctx.fillStyle = 'white';
       ctx.lineWidth = 1;
-      ctx.strokeStyle = o.local_player ? 'blue' : 'black';
+      ctx.strokeStyle = o.local_player ? 'white' : 'gray';
 
       ctx.beginPath();
 
@@ -53,14 +53,7 @@ Render.Player = Render.ModelRenderer({
       ctx.lineTo(r, -r);
       ctx.lineTo(0, 0);
 
-      /*
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-      ctx.moveTo(0, 0);
-      ctx.lineTo(0, 1.5 * r);
-      */
-        ctx.stroke();
+      ctx.stroke();
     ctx.restore();
   }
 });
@@ -68,10 +61,14 @@ Render.Player = Render.ModelRenderer({
 Render.Projectile = Render.ModelRenderer({
   render: function(o, ctx) {
     ctx.save();
-    ctx.fillStyle = '#888';
+    ctx.fillStyle = '#fff';
+    ctx.strokeStyle = 'rgba(255,141,0,1)';
+    ctx.lineWidth = '1';
     ctx.beginPath();
-      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.arc(0, 0, 2, 0, Math.PI * 2);
       ctx.fill();
+      ctx.stroke();
+    ctx.closePath();
     ctx.restore();
   }
 });
@@ -79,10 +76,11 @@ Render.Projectile = Render.ModelRenderer({
 Render.Explosion = Render.ModelRenderer({
   render: function(o, ctx) {
     ctx.save();
-    ctx.strokeStyle = 'green';
-    ctx.lineWidth = 2;
-    var half_radius = o.radius * 0.5;
-    ctx.strokeRect(-o.radius*0.5, -o.radius*0.5, o.radius, o.radius);
+    ctx.fillStyle = 'rgba(255,141,0,' + (1.0 - o.age / o.lifespan).toFixed(1) + ')';
+    ctx.beginPath();
+    ctx.arc(0, 0, o.radius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.closePath();
     ctx.restore();
   }
 });
@@ -119,7 +117,7 @@ function render(sel) {
       ctx.fillRect(0, 0, width, height);
 
       var view = this.viewport;
-      // ctx.translate(-view.min_x, -view.min_y);
+      ctx.translate(-view.min_x, -view.min_y);
 
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(0,0,0,0.2)';

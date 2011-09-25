@@ -26,6 +26,10 @@ var physics = {
         velocity = vec2.add(velocity, vec2.scale(acceleration, dt));
       }
 
+      if (angular_velocity !== 0) {
+        rotation += rangewrap(rotation + angular_velocity*dt);
+      }
+
       if (vec2.nonzero(velocity)) {
         if (drag_coefficient) {
           var speed = vec2.length(velocity);
@@ -66,6 +70,7 @@ entity.Entity = function(opts) {
     position: [320, 240],
     velocity: [0, 0],
     acceleration: [0, 0],
+    angular_velocity: 0,
     rotation: 0,
     drag_coefficient: 0,
     update_physics: physics.standard,
@@ -126,7 +131,7 @@ entity.Entity = function(opts) {
 
 entity.Projectile = function(opts) {
 
-  var initial_velocity = 500;
+  var initial_velocity = 300;
 
   var o = _.extend(entity.Entity({
     type: 'Projectile',
@@ -158,24 +163,21 @@ entity.Projectile = function(opts) {
 
 entity.Explosion = function(opts) {
 
-  var initial_lifespan = Math.random() * 0.75 + 0.25;
-  var initial_radius = Math.random() * 20;
-
   var o = _.extend(entity.Entity({
     type: 'Explosion',
-    ttl: initial_lifespan,
-    radius: initial_radius,
-    rotation: Math.random() * Math.PI * 2,
-
+    age: 0,
+    lifespan: Math.random() * 0.75 + 0.25,
+    expansion_rate: Math.random() * 100 + 50,
+    radius: 1,
     flags: entity.SPAWN_CLIENT,
 
     simulate: function(dt) {
       with (this) {
-        ttl -= dt;
-        if (ttl <= 0) {
+        age += dt;
+        if (age >= lifespan) {
           kill();
         } else {
-          radius = (ttl / initial_lifespan) * initial_radius;
+          radius += expansion_rate * dt;
         }
       }
     },
