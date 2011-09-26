@@ -7,18 +7,11 @@ Render.ModelRenderer = function(opts) {
     prerender: function(o, ctx) {
       ctx.save();
       ctx.translate.apply(ctx, o.position);
-      // if (o.type === 'Player') {
-      //   ctx.fillStyle = '#888';
-      //   ctx.textAlign = 'center';
-      //   ctx.fillText(o.id +
-      //                '(' +
-      //                o.position[0].toFixed(1) +
-      //                ',' +
-      //                o.position[1].toFixed(1) + 
-      //                ') ' +
-      //                vec2.length(o.velocity).toFixed(1)
-      //                , 0, 20);
-      // }
+      if (o.type === 'Player') {
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'center';
+        ctx.fillText(o.name + ' (' + o.health.toFixed(1) + ')', 0, 20);
+      }
       if (Render.debug_collisions) {
         ctx.strokeStyle = 'red';
         var r = o.radius;
@@ -36,12 +29,21 @@ Render.ModelRenderer = function(opts) {
   }, opts);
 }
 
+var local_player_color = [255,255,255];
+var remote_player_color = [128,128,128];
+var damaged_color = [255,0,0];
+
 Render.Player = Render.ModelRenderer({
   render: function(o, ctx) {
     ctx.save();
-      ctx.fillStyle = 'white';
       ctx.lineWidth = 1;
-      ctx.strokeStyle = o.local_player ? 'white' : 'gray';
+
+      var cur_color = vec3.lerp(
+        damaged_color,
+        o.local_player ? local_player_color : remote_player_color,
+        o.health / o.max_health);
+
+      ctx.strokeStyle = 'rgb(' + _.map(cur_color, Math.round).join(',') + ')';
 
       ctx.beginPath();
 
@@ -75,6 +77,7 @@ Render.Projectile = Render.ModelRenderer({
 
 Render.Explosion = Render.ModelRenderer({
   render: function(o, ctx) {
+    return;
     ctx.save();
     ctx.fillStyle = 'rgba(255,141,0,' + (1.0 - o.age / o.lifespan).toFixed(1) + ')';
     ctx.beginPath();
@@ -113,28 +116,42 @@ function render(sel) {
 
     render: function(sim) {
       ctx.save();
+
       ctx.fillStyle = nfold.background_color,
       ctx.fillRect(0, 0, width, height);
 
       var view = this.viewport;
       ctx.translate(-view.min_x, -view.min_y);
 
+
+      // Draw background
       ctx.beginPath();
       ctx.strokeStyle = 'rgba(0,0,0,0.2)';
       ctx.lineWidth = 1;
 
       for (var x = (view.min_x - view.min_x % 50); x < view.max_x; x += 50) {
-        ctx.moveTo(x, this.viewport.min_y);
-        ctx.lineTo(x, this.viewport.max_y);
+        ctx.moveTo(x, view.min_y);
+        ctx.lineTo(x, view.max_y);
       }
       for (var y = (view.min_y - view.min_y % 50); y < view.max_y; y += 50) {
-        ctx.moveTo(this.viewport.min_x, y);
-        ctx.lineTo(this.viewport.max_x, y);
+        ctx.moveTo(view.min_x, y);
+        ctx.lineTo(view.max_x, y);
       }
       ctx.stroke();
 
+      // draw boundary of the world
+      ctx.strokeStyle = 'gray';
+      var world_bounds = sim.world_bounds();
+      ctx.strokeRect(
+        world_bounds.min_x,
+        world_bounds.min_y,
+        world_bounds.max_x - world_bounds.min_x,
+        world_bounds.max_y - world_bounds.min_y
+      );
+
+
       var render_count = 0;
-      sim.each_entity(this.viewport, function(o) {
+      sim.each_entity(view, function(o) {
         var renderer = Render[o.type];
         renderer.prerender(o, ctx);
         renderer.render(o, ctx);

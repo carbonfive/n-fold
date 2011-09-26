@@ -1,6 +1,7 @@
 if (typeof(require) === 'function') {
   _ = require('./extern/underscore-min.js');
   require('./math.js');
+  pubsub = require('./pubsub.js');
 }
 
 var entity = {
@@ -97,6 +98,7 @@ entity.Entity = function(opts) {
 
     kill: function() {
       this.remove_me = true;
+      pubsub.publish('killed', this.id);
     },
 
     position_data: function() {
@@ -135,6 +137,9 @@ entity.Projectile = function(opts) {
 
   var o = _.extend(entity.Entity({
     type: 'Projectile',
+
+    damage: 5,
+
     lifespan: 2.0,
     radius: 1,
     age: 0,
@@ -192,16 +197,25 @@ entity.Explosion = function(opts) {
   return o;
 };
 
+
 entity.Player = function(opts) {
 
   return _.extend(entity.Entity({
     type: 'Player',
-    radius: 8,
+    flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT,
+
+    heal_rate: 10,
+    health: 100,
+    max_health: 100,
+    name: 'player',
     rotate_speed: 5.0,
     thrust: 500.0,
+
+    // physics
     drag_coefficient: 0.01,
 
-    flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT,
+    // collide
+    radius: 8,
 
     handle_input: function(input, dt) {
       if (input.is_pressed(37)) { this.rotate(-this.rotate_speed * dt); }
@@ -221,7 +235,20 @@ entity.Player = function(opts) {
         velocity: this.velocity,
         rotation: this.rotation
       }, true);
-    }
+    },
+
+    simulate: function(dt) {
+      this.health = rangelimit(this.health + this.heal_rate * dt, 0, this.max_health);
+    },
+
+    damage: function(amount, owner) {
+      this.health -= amount;
+      if (this.health <= 0) {
+        this.kill();
+      } else {
+        pubsub.publish('damage', { entity: this, amount: amount });
+      }
+    },
 
   }), opts);
 };

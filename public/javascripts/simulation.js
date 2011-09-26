@@ -22,10 +22,21 @@ simulation.Simulation = function(opts) {
     Player: {
       Projectile: function(sim, player, projectile) {
         sim.kill(projectile.id, true);
+        player.damage(projectile.damage, projectile.owner);
       }
     }
   }
 
+  pubsub.subscribe('damage', function(data) {
+    sim.net.broadcast('entity_update', {
+      id: data.entity.id,
+      health: data.entity.health
+    });
+  });
+
+  pubsub.subscribe('killed', function(entity_id) {
+    sim.net.broadcast('kill', entity_id);
+  });
 
   var sim = {
 

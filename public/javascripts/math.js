@@ -6,6 +6,10 @@ rangelimit = function(x, min, max) {
   return (x > max) ? max : ((x < min) ? min : x);
 }
 
+lerp = function(a, b, t) {
+  return a + (b - a) * t;
+}
+
 vec2 = {};
 
 vec2.add = function(v0, v1) {
@@ -34,6 +38,15 @@ vec2.length = function(v) {
 
 vec2.normalize = function(v) {
   return vec2.scale(v, 1.0/vec2.length(v));
+}
+
+vec3 = {};
+vec3.lerp = function(v0, v1, t) {
+  return [
+    lerp(v0[0], v1[0], t),
+    lerp(v0[1], v1[1], t),
+    lerp(v0[2], v1[2], t)
+  ];
 }
 
 mat2 = {};
