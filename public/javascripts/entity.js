@@ -200,6 +200,9 @@ entity.Explosion = function(opts) {
 
 entity.Player = function(opts) {
 
+  var autofire_rate = 50;
+  var last_fire = 0;
+
   return _.extend(entity.Entity({
     type: 'Player',
     flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT,
@@ -224,6 +227,13 @@ entity.Player = function(opts) {
         this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]);
       } else {
         this.acceleration = [0, 0];
+      }
+      if (input.is_pressed(32)) {
+        var t = (new Date).getTime();
+        if (t - last_fire > autofire_rate) {
+          this.fire();
+          last_fire = t;
+        }
       }
     },
 

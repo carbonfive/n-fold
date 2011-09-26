@@ -16,7 +16,6 @@ Client = function() {
   var im = input.InputManager();
   var socket = io.connect();
   var player = null;
-  var last_player_update_time = 0;
 
   function network_message(msg, fn) {
     socket.on(msg, function(payload) {
@@ -61,22 +60,6 @@ Client = function() {
   function schedule_loop(loop_time) {
     setTimeout(loop, Math.max(nfold.loop_interval - loop_time, 0));
   }
-
-  im.add_keydown_handler(32, function() {
-    if (player)
-      player.fire();
-  });
-
-  sim.add_post_tick_callback(function() {
-    if (player) {
-      var t = (new Date).getTime();
-      if (t - last_player_update_time >= 50) {
-        var update_data = _.extend(player.position_data(), { name: player.name });
-        sim.net.broadcast('entity_update', update_data);
-        last_player_update_time = t;
-      }
-    }
-  });
 
   function loop() {
     loop_start_time = (new Date).getTime();
@@ -146,6 +129,7 @@ Client = function() {
   };
 
 };
+
 
 $(function() {
 

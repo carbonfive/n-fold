@@ -27,6 +27,7 @@ simulation.Simulation = function(opts) {
     }
   }
 
+  // move this pubsub crap to network module
   pubsub.subscribe('damage', function(data) {
     sim.net.broadcast('entity_update', {
       id: data.entity.id,
@@ -38,10 +39,37 @@ simulation.Simulation = function(opts) {
     sim.net.broadcast('kill', entity_id);
   });
 
+  var last_local_player_broadcast = 0;
+  pubsub.subscribe('sim_endframe', function(sim) {
+    if (sim.local_player) {
+      var t = (new Date).getTime();
+      if (t - last_local_player_broadcast >= 50) {
+        var update_data = _.extend(sim.local_player.position_data(), { name: sim.local_player.name });
+        sim.net.broadcast('entity_update', update_data);
+        last_local_player_broadcast = t;
+      }
+    }
+  });
+
+  function add_to_world(e) {
+    world[e.id] = e;
+    if (e.local_player) {
+      sim.local_player = e;
+    }
+  }
+
+  function remove_from_world(e) {
+    delete world[e.id];
+    if (e.local_player) {
+      sim.local_player = null;
+    }
+  }
+
   var sim = {
 
     type: simulation.SERVER,
     collide_type: collide.CLIENT,
+    local_player: null,
     quadtree: null,
     broadcast_entities: [],
 
@@ -73,7 +101,7 @@ simulation.Simulation = function(opts) {
         o.update_collide();
 
         if (o.remove_me) {
-          delete world[o.id];
+          remove_from_world(o);
         } else {
           self.quadtree.insert(o.collide);
 
@@ -92,9 +120,7 @@ simulation.Simulation = function(opts) {
         }));
       }
 
-      _.each(callbacks, function(cb) {
-        cb(self);
-      });
+      pubsub.publish('sim_endframe', self);
 
       this.broadcast_entities = [];
       last_sim_time = start_time;
@@ -116,10 +142,6 @@ simulation.Simulation = function(opts) {
       });
     },
 
-    add_post_tick_callback: function(cb) {
-      callbacks.push(cb);
-    },
-
     find_entity: function(id) {
       return world[id] || null;
     },
@@ -133,7 +155,7 @@ simulation.Simulation = function(opts) {
         return;
       }
 
-      world[e.id] = e;
+      add_to_world(e);
       e.spawn();
       if (broadcast) { this.broadcast_entities.push(e); }
       return e;
@@ -142,7 +164,7 @@ simulation.Simulation = function(opts) {
     // Creates and inserts
     deserialize: function(opts) {
       o = entity[opts.type](_.extend({ sim: this }, opts));
-      world[o.id] = o;
+      add_to_world(o);
       return o;
     },
 
