@@ -21,18 +21,31 @@ html
     header
       | n&bull;fold
     .main
-      canvas(width=640,height=480)
-    .sidebar
-      span.client_id
-      span.score
-      p
-        form#enter_game
-          input(name='player_name', type='text', value='player')
-          input(type='submit', value='set name')
-      p
-        input.debug#debug_quadtrees(name='debug_quadtrees', value='quadtrees', type='checkbox')
-        label(for='debug_quadtrees') quadtrees
-      p
-        input.debug#debug_collisions(name='debug_collisions', value='collisions', type='checkbox')
-        label(for='debug_collisions') collisions
+      .main_content
+        section
+          canvas(width='640', height='480')
+        section
+          form#chat
+            input(name='say_what', type='text')
+      .sub_content
+        span.client_id
+        span.score
+        p
+          form#set_name
+            input(name='player_name', type='text', value='player')
+            input(type='submit', value='set name')
+        section.debug
+          ul
+            li
+              input.debug#debug_quadtrees(name='debug_quadtrees', value='quadtrees', type='checkbox')
+              label(for='debug_quadtrees') quadtrees
+            li
+              input.debug#debug_collisions(name='debug_collisions', value='collisions', type='checkbox')
+              label(for='debug_collisions') collisions
+        section.chat_messages
     footer
+      pre.help
+        | space        - enter game / fire
+        | left/right   - rotate
+        | up           - thrust
+        | t            - chat

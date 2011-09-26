@@ -56,7 +56,7 @@ simulation.Simulation = function(opts) {
       var self = this;
 
       self.quadtree = collide.QuadTree(world_bounds, {
-        max_depth: 8,
+        max_depth: 5,
         threshold: 4,
       });
 

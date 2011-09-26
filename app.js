@@ -55,8 +55,8 @@ io.sockets.on('connection', function(socket) {
   var network_message = function(msg, fn) {
     socket.on(msg, function(payload) {
       payload = payload || {};
-      fn(payload.data);
-      if (DEBUG_NET && msg !== 'entity_update') { console.log('RECV: %s, %j', msg, payload.data); }
+      fn(payload.data, payload);
+      if (DEBUG_NET && msg !== 'entity_update') { console.log('RECV: %s, %j', msg, payload); }
       if (payload.broadcast) {
         socket.broadcast.emit(msg, payload);
       }
@@ -82,6 +82,13 @@ io.sockets.on('connection', function(socket) {
 
   network_message('new_entities', function(data) {
     _.each(data, function(opts) { sim.deserialize(opts); });
+  });
+
+  network_message('chat', function(data, payload) {
+    if (data.text[0] === '/') {
+      payload.broadcast = false;
+      console.log("Command received: %s", data.text);
+    }
   });
 });
 

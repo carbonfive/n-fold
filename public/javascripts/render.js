@@ -77,7 +77,6 @@ Render.Projectile = Render.ModelRenderer({
 
 Render.Explosion = Render.ModelRenderer({
   render: function(o, ctx) {
-    return;
     ctx.save();
     ctx.fillStyle = 'rgba(255,141,0,' + (1.0 - o.age / o.lifespan).toFixed(1) + ')';
     ctx.beginPath();

@@ -138,7 +138,7 @@ entity.Projectile = function(opts) {
   var o = _.extend(entity.Entity({
     type: 'Projectile',
 
-    damage: 5,
+    damage: 25,
 
     lifespan: 2.0,
     radius: 1,

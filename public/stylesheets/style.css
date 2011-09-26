@@ -50,20 +50,57 @@ table {
 /* end reset */
 
 body {
+  background-color: #eee;
   font-family: helvetica,arial,sans-serif;
   font-size: 15px;
+  padding: 10px;
 }
+
+pre { font-family: "Andale Mono", monospace }
+strong { font-weight: bold; }
+
+section {
+  margin-bottom: 10px;
+}
+
+section h1 { font-weight: bold; }
 
 .main {
-  float: left;
+  overflow: hidden;
 }
 
-.main canvas {
+.main_content {
+  float: left;
+  margin-right: 10px;
   width: 640px;
-  height: 480px;
-  outline: 1px solid #666;
 }
 
-.sidebar {
+.sub_content {
   float: left;
+  width: 400px;
+}
+
+form#chat input {
+  width: 630px;
+}
+
+.chat {
+  clear: both;
+  width: 100%;
+}
+
+.chat_messages {
+  max-height: 360px;
+  overflow-x: hidden;
+  overflow-y: scroll;
+  font-size: 12px;
+}
+
+.chat_messages p {
+  border-bottom: 1px solid #DDD;
+  padding: 2px 0;
+}
+
+.help {
+  display: none;
 }

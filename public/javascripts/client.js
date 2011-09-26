@@ -1,12 +1,6 @@
 nfold = {
-  // background_color: '#fff',
   background_color: '#222',
   loop_interval: 20,
-  render_qudtree: false,
-  client_id: 'Player:' + Math.round(Math.random() * 0xFFFFFFFF).toString(16),
-
-  score: 0,
-
   debug: {
     quadtrees: false,
     collisions: false,
@@ -14,17 +8,22 @@ nfold = {
   }
 };
 
-$(function() {
+Client = function() {
 
-  $('span.client_id').html(nfold.client_id);
-
-  var r = render('.main canvas');
-  var sim = simulation.Simulation({
-    type: simulation.CLIENT
-  })
+  var client_id = 'client:' + Math.round(Math.random() * 0xFFFFFFFF).toString(16);
+  var renderer = render('.main canvas');
+  var sim = simulation.Simulation({ type: simulation.CLIENT });
   var im = input.InputManager();
-
   var socket = io.connect();
+  var player = null;
+  var last_player_update_time = 0;
+
+  function network_message(msg, fn) {
+    socket.on(msg, function(payload) {
+      if (nfold.debug.net && msg !== 'entity_update') { console.log('RECV: %s, %o', msg, payload ? payload.data : null); }
+      fn(payload ? payload.data : null);
+    });
+  };
 
   sim.net = {
     broadcast: function(msg, data) {
@@ -33,15 +32,8 @@ $(function() {
     }
   }
 
-  var network_message = function(msg, fn) {
-    socket.on(msg, function(payload) {
-      if (nfold.debug.net && msg !== 'entity_update') { console.log('RECV: %s, %o', msg, payload ? payload.data : null); }
-      fn(payload ? payload.data : null);
-    });
-  };
-
   network_message('connect', function() {
-    sim.net.broadcast('hello', nfold.client_id);
+    sim.net.broadcast('hello', client_id);
   });
 
   network_message('sync', function(data) {
@@ -62,29 +54,12 @@ $(function() {
     sim.kill(id);
   });
 
-  function schedule_loop(loop_time) {
-    setTimeout(loop, Math.max(nfold.loop_interval - loop_time, 0));
-  }
-
-  var player = null;
-
-  $('button.start').click(function(e) {
-    add_local_player();
-    $(this).remove();
+  network_message('chat', function(data) {
+    pubsub.publish('chat', data);
   });
 
-  function add_local_player() {
-    player = sim.spawn({
-      id: nfold.client_id,
-      type: 'Player',
-      local_player: true,
-      debug: false,
-      name: $('input[name=player_name]').val(),
-      position: sim.random_location()
-    }, true);
-
-    sim.current = nfold.client_id;
-
+  function schedule_loop(loop_time) {
+    setTimeout(loop, Math.max(nfold.loop_interval - loop_time, 0));
   }
 
   im.add_keydown_handler(32, function() {
@@ -92,27 +67,24 @@ $(function() {
       player.fire();
   });
 
-  var last_pos_update = 0;
   sim.add_post_tick_callback(function() {
     if (player) {
       var t = (new Date).getTime();
-      if (t - last_pos_update >= 50) {
+      if (t - last_player_update_time >= 50) {
         var update_data = _.extend(player.position_data(), { name: player.name });
         sim.net.broadcast('entity_update', update_data);
-        last_pos_update = t;
+        last_player_update_time = t;
       }
     }
   });
-
-  var last_loop_time = 0;
 
   function loop() {
     loop_start_time = (new Date).getTime();
     sim.tick(im);
     if (player) {
-      r.viewport.update_cwh(player.position, r.width, r.height);
+      renderer.viewport.update_cwh(player.position, renderer.width, renderer.height);
     }
-    r.render(sim);
+    renderer.render(sim);
 
     if (nfold.debug.quadtrees || nfold.debug.collisions) {
       var debug_quads = [sim.world_bounds()];
@@ -124,42 +96,118 @@ $(function() {
           });
         }
       });
-      r.render_bounding_boxes.apply(r, debug_quads);
+      renderer.render_bounding_boxes.apply(renderer, debug_quads);
     }
 
     loop_end_time = (new Date).getTime();
     var loop_time = loop_end_time - loop_start_time;
     schedule_loop(loop_time);
-    last_loop_time = loop_end_time;
   }
 
   loop();
+
+  pubsub.subscribe('killed', function(entity_id) {
+    if (player && player.id === entity_id) {
+      player = null;
+    }
+  });
+
+  pubsub.subscribe('new_chat', function(data) {
+    sim.net.broadcast('chat', data);
+    pubsub.publish('chat', data);
+  });
+
+  return {
+    client_id: client_id,
+
+    join_game: function(name) {
+
+      if (!player) {
+        player = sim.spawn({
+          id: client_id,
+          type: 'Player',
+          local_player: true,
+          debug: false,
+          name: name,
+          position: sim.random_location()
+        }, true);
+        sim.current = client_id;
+      }
+    },
+
+    playing: function() {
+      return player !== null;
+    },
+
+    set_name: function(name) {
+      if (player) { player.name = name; }
+    },
+
+  };
+
+};
+
+$(function() {
+
+  var client = Client();
+  var name = 'player';
+
+  $('span.client_id').html(client.client_id);
+  $('input[name=player_name]').val(name);
+
+  $(document).keydown(function(e) {
+    // console.log(e.keyCode, e.charCode, e);
+    if (e.keyCode == 32) {  // space
+      if (!client.playing()) {
+        e.preventDefault();
+        client.join_game(name);
+      }
+    } else if (e.keyCode === 84) {  // 't'
+      e.preventDefault();
+      $('form#chat input[name=say_what]').focus();
+    } else if (e.keyCode === 72) {  // 'h'
+      $('.help').toggle();
+    }
+  });
+
+  $('form#set_name').keydown(function(e) { e.stopPropagation(); });
+  $('form#set_name').submit(function(e) {
+    e.preventDefault();
+    var $input = $('input[name=player_name]').blur();
+    var new_name = $input.val().trim();
+    if (new_name.length === 0) {
+      $input.val(name); // invalid, set it back
+    } else {
+      name = new_name;
+      client.set_name(name);
+    }
+  });
+
+  $('form#chat').keydown(function(e) {
+    if (e.keyCode == 27) { $('input', this).blur(); }
+    e.stopPropagation();
+  });
+
+  $('form#chat').submit(function(e) {
+    e.preventDefault();
+    var $input = $('input[name=say_what]', this).blur();
+    var chat_string = $input.val().trim();
+    if (chat_string.length > 0) {
+      pubsub.publish('new_chat', { source: name, text: chat_string });
+    }
+    $input.val('');
+  });
 
   $('input.debug:checkbox').change(function() {
     var key = $(this).val();
     nfold.debug[key] = $(this).is(':checked');
   });
 
-  $('#enter_game').submit(function(e) {
-    e.preventDefault();
-    var $input = $('input[name=player_name]');
-    $input.blur();
-    if (player) {
-      player.name = $input.val();
-    }
-  });
-
-  $(document).keydown(function(e) {
-    if (!player && e.keyCode == 32) {
-      e.preventDefault();
-      add_local_player();
-    }
-  });
-
-  pubsub.subscribe('killed', function(entity_id) {
-    if (player && player.id === entity_id) {
-      player = null;
-    }
+  pubsub.subscribe('chat', function(data) {
+    $chat_message = $('<p><strong></strong> <span></span></p>');
+    $('strong', $chat_message).text(data.source);
+    $('span', $chat_message).text(data.text);
+    $('.chat_messages').prepend($chat_message);
   });
 
 });
