@@ -1,6 +1,9 @@
 nfold = {
   background_color: '#222',
   loop_interval: 20,
+  render: {
+    orient_view: false,
+  },
   debug: {
     quadtrees: false,
     collisions: false,
@@ -64,6 +67,7 @@ Client = function() {
   });
 
   function schedule_loop(loop_time) {
+    im.reset_frame();
     setTimeout(loop, Math.max(nfold.loop_interval - loop_time, 0));
   }
 
@@ -120,7 +124,7 @@ Client = function() {
           name: name,
           position: sim.random_location()
         }, true);
-        sim.current = client_id;
+        sim.current = player;
       }
     },
 
@@ -132,6 +136,10 @@ Client = function() {
       if (player) { player.name = name; }
     },
 
+    _get_player: function() {
+      return player;
+    }
+
   };
 
 };
@@ -140,6 +148,11 @@ Client = function() {
 $(function() {
 
   var client = Client();
+  //
+  // !!! DEBUG !!!
+  window.nfold_client = client;
+  // !!! DEBUG !!!
+  //
   var name = 'player';
 
   $('span.client_id').html(client.client_id);

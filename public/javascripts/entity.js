@@ -17,9 +17,18 @@ var entity = {
 
   VISIBLE:          0x0010,
   PHYSICAL:         0x0020,
+
+  // POWERUP FLAGS
+  PU_SPREAD_2:      0x0001,
+  PU_SPREAD_3:      0x0002,
+  PU_NONAGUN:       0x0004,
+  PU_DOUBLE_RATE:   0x0008,
 };
 
 var physics = {
+
+  none: function(dt, sim) {
+  },
 
   standard: function(dt, sim) {
     with (this) {
@@ -56,6 +65,7 @@ var physics = {
   }
 
 };
+
 
 entity.Entity = function(opts) {
 
@@ -205,11 +215,16 @@ entity.Explosion = function(opts) {
   return o;
 };
 
-
 entity.Player = function(opts) {
 
-  var autofire_rate = 50;
+  var autofire_rate = 250;
   var last_fire = 0;
+
+  function calculate_powerup_flags(powerups) {
+    var flags = 0x0;
+    _.each(powerups, function(pu) { flags = (flags | pu.flags); });
+    return flags;
+  };
 
   return _.extend(entity.Entity({
     type: 'Player',
@@ -219,10 +234,14 @@ entity.Player = function(opts) {
     health: 100,
     max_health: 100,
     name: 'player',
-    rotate_speed: 5.0,
+    rotate_speed: 4.0,
     thrust: 500.0,
 
     render: render.player,
+
+    powerup_flags: 0x0,
+    powerups: {},
+    projectile: 'Projectile',
 
     // physics
     drag_coefficient: 0.01,
@@ -233,14 +252,38 @@ entity.Player = function(opts) {
     handle_input: function(input, dt) {
       if (input.is_pressed(37)) { this.rotate(-this.rotate_speed * dt); }
       if (input.is_pressed(39)) { this.rotate( this.rotate_speed * dt); }
+
       if (input.is_pressed(38)) {
         this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]);
       } else {
         this.acceleration = [0, 0];
       }
+
+      /*
+      var acceleration = [0, 0];
+      if (input.is_pressed(69)) { // e
+        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]));
+      }
+
+      if (input.is_pressed(68)) { // d
+        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [0, -this.thrust*0.5]));
+      }
+
+      if (input.is_pressed(83)) { // s
+        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [this.thrust, 0]));
+      }
+
+      if (input.is_pressed(70)) { // f
+        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [-this.thrust, 0]));
+      }
+
+      this.acceleration = acceleration;
+      */
+
       if (input.is_pressed(32)) {
+        var rate = this.powerup_flags & entity.PU_DOUBLE_RATE ? autofire_rate*0.25 : autofire_rate;
         var t = (new Date).getTime();
-        if (t - last_fire > autofire_rate) {
+        if (t - last_fire > rate) {
           this.fire();
           last_fire = t;
         }
@@ -248,17 +291,56 @@ entity.Player = function(opts) {
     },
 
     fire: function() {
-      this.sim.spawn({
-        type: 'Projectile',
+      var opts = {
+        type: this.projectile,
         owner: this.id,
         position: this.position,
         velocity: this.velocity,
-        rotation: this.rotation
-      }, true);
+        rotation: this.rotation,
+      };
+
+      function noisy(x, variance) {
+        return x + Math.random()*variance - 0.5*variance;
+      }
+
+      if (this.powerup_flags & (entity.PU_SPREAD_2 | entity.PU_SPREAD_3 | entity.PU_NONAGUN)) {
+        if (this.powerup_flags & entity.PU_SPREAD_2) {
+          var spread = 0.0872664626 * 2;
+          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - spread }), true);
+          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + spread }), true);
+        }
+        if (this.powerup_flags & entity.PU_SPREAD_3) {
+          var spread = 0.0872664626 * 4;
+          this.sim.spawn(opts, true);
+          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, Math.random()) }), true);
+          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, noisy(1.0, 0.5)) }), true);
+        }
+        if (this.powerup_flags & entity.PU_NONAGUN) {
+          var count = 9;
+          var spread = (2 * Math.PI) / count;
+          var variance = 0.25 * spread;
+          for (var i = 0; i < count; i++) {
+            this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread*i, variance) }), true);
+          }
+        }
+      } else {
+        this.sim.spawn(opts, true);
+      }
+
     },
 
     simulate: function(dt) {
+      var self = this;
+
       this.health = rangelimit(this.health + this.heal_rate * dt, 0, this.max_health);
+
+      // update powerups
+      var removed_powerups = [];
+      _.each(self.powerups, function(pu) {
+        pu.ttl -= dt;
+        if (pu.ttl <= 0) { removed_powerups.push(pu); };
+      });
+      _.each(removed_powerups, function(pu) { self.remove_powerup(pu.type); });
     },
 
     damage: function(amount, owner) {
@@ -270,7 +352,32 @@ entity.Player = function(opts) {
       }
     },
 
+    add_powerup: function(powerup_type) {
+      var pu = powerups.create(powerup_type);
+      console.log("creating: %o", pu);
+      this.powerups[powerup_type] = pu;
+      pubsub.publish('entity:powerup_added', {
+        entity_id: this.id,
+        powerup_type: powerup_type
+      });
+      this.powerup_flags = calculate_powerup_flags(this.powerups);
+      console.log("After add %o %o", this.powerup_flags, this.powerups);
+    },
+
+    remove_powerup: function(powerup_type) {
+      delete this.powerups[powerup_type];
+      this.powerup_flags = calculate_powerup_flags(this.powerups);
+      console.log("After remove %o %o", this.powerup_flags, this.powerups);
+    },
+
   }), opts);
+};
+
+powerups = {
+  create: function(powerup_type) { return _.extend({}, powerups[powerup_type]); },
+  doublespread: { type: 'doublespread', flags: entity.PU_SPREAD_2, ttl: 10 },
+  triplespread: { type: 'triplespread', flags: entity.PU_SPREAD_3, ttl: 10 },
+  nonagun: { type: 'nonagun', flags: entity.PU_NONAGUN, ttl: 10 },
 };
 
 if (typeof(exports) !== 'undefined') {

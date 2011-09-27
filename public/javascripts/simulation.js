@@ -51,6 +51,10 @@ simulation.Simulation = function(opts) {
     }
   });
 
+  pubsub.subscribe('entity:add_powerup', function(data) {
+    world[data.entity_id].add_powerup(data.powerup_type);
+  });
+
   function add_to_world(e) {
     world[e.id] = e;
     if (e.local_player) {

@@ -46,11 +46,12 @@ var render = {
   },
 
   projectile: function(o, ctx) {
+    var render_radius = 2.5;
     ctx.fillStyle = '#fff';
     ctx.strokeStyle = 'rgba(255,141,0,1)';
-    ctx.lineWidth = '1';
+    ctx.lineWidth = Math.round(render_radius * 0.5).toString();
     ctx.beginPath();
-      ctx.arc(0, 0, 2, 0, Math.PI * 2);
+      ctx.arc(0, 0, render_radius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
     ctx.closePath();
