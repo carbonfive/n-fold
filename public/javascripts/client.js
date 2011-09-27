@@ -11,7 +11,13 @@ nfold = {
 Client = function() {
 
   var client_id = 'client:' + Math.round(Math.random() * 0xFFFFFFFF).toString(16);
-  var renderer = render('.main canvas');
+
+  var $canvas = $('.main canvas');
+  var rendering_context = $canvas[0].getContext('2d');
+  var width = $canvas.width();
+  var height = $canvas.height();
+  var viewport = collide.AABB(0, 0, width, height);
+
   var sim = simulation.Simulation({ type: simulation.CLIENT });
   var im = input.InputManager();
   var socket = io.connect();
@@ -65,9 +71,9 @@ Client = function() {
     loop_start_time = (new Date).getTime();
     sim.tick(im);
     if (player) {
-      renderer.viewport.update_cwh(player.position, renderer.width, renderer.height);
+      viewport.update_cwh(player.position, width, height);
     }
-    renderer.render(sim);
+    render.render_scene(rendering_context, sim, viewport);
 
     if (nfold.debug.quadtrees || nfold.debug.collisions) {
       var debug_quads = [sim.world_bounds()];
@@ -79,7 +85,7 @@ Client = function() {
           });
         }
       });
-      renderer.render_bounding_boxes.apply(renderer, debug_quads);
+      render.render_bounding_boxes(rendering_context, viewport, debug_quads);
     }
 
     loop_end_time = (new Date).getTime();

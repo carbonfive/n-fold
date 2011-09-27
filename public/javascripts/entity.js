@@ -1,6 +1,7 @@
 if (typeof(require) === 'function') {
   _ = require('./extern/underscore-min.js');
   require('./math.js');
+  render = ('./render.js');
   pubsub = require('./pubsub.js');
 }
 
@@ -66,6 +67,11 @@ entity.Entity = function(opts) {
     type: 'Entity',       // entity
 
     flags: 0,
+
+    // rendering
+    render: render.default,
+    prerender: render.prerender,
+    postrender: render.postrender,
 
     // physics
     position: [320, 240],
@@ -139,6 +145,7 @@ entity.Projectile = function(opts) {
     type: 'Projectile',
 
     damage: 25,
+    render: render.projectile,
 
     lifespan: 2.0,
     radius: 1,
@@ -175,6 +182,7 @@ entity.Explosion = function(opts) {
     expansion_rate: Math.random() * 100 + 50,
     radius: 1,
     flags: entity.SPAWN_CLIENT,
+    render: render.explosion,
 
     simulate: function(dt) {
       with (this) {
@@ -213,6 +221,8 @@ entity.Player = function(opts) {
     name: 'player',
     rotate_speed: 5.0,
     thrust: 500.0,
+
+    render: render.player,
 
     // physics
     drag_coefficient: 0.01,
