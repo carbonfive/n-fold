@@ -8,6 +8,7 @@ nfold = {
     quadtrees: false,
     collisions: false,
     net: false,
+    keystrokes: false,
   }
 };
 
@@ -159,7 +160,9 @@ $(function() {
   $('input[name=player_name]').val(name);
 
   $(document).keydown(function(e) {
-    // console.log(e.keyCode, e.charCode, e);
+    if (nfold.debug.keystrokes) {
+      console.log(e.keyCode, e);
+    }
     if (e.keyCode == 32) {  // space
       if (!client.playing()) {
         e.preventDefault();

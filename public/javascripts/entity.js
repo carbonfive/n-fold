@@ -19,10 +19,10 @@ var entity = {
   PHYSICAL:         0x0020,
 
   // POWERUP FLAGS
-  PU_SPREAD_2:      0x0001,
-  PU_SPREAD_3:      0x0002,
-  PU_NONAGUN:       0x0004,
-  PU_DOUBLE_RATE:   0x0008,
+  PU_DOUBLE_RATE:   0x0001,
+  PU_SPREAD_2:      0x0002,
+  PU_SPREAD_3:      0x0004,
+  PU_NONAGUN:       0x0008,
 };
 
 var physics = {
@@ -236,6 +236,7 @@ entity.Player = function(opts) {
     name: 'player',
     rotate_speed: 4.0,
     thrust: 500.0,
+    reverse_thrust: 250.0,
 
     render: render.player,
 
@@ -253,11 +254,9 @@ entity.Player = function(opts) {
       if (input.is_pressed(37)) { this.rotate(-this.rotate_speed * dt); }
       if (input.is_pressed(39)) { this.rotate( this.rotate_speed * dt); }
 
-      if (input.is_pressed(38)) {
-        this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]);
-      } else {
-        this.acceleration = [0, 0];
-      }
+      this.acceleration = [0, 0];
+      if (input.is_pressed(38)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]); }
+      if (input.is_pressed(40)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation + Math.PI), [0, this.reverse_thrust]); }
 
       /*
       var acceleration = [0, 0];
