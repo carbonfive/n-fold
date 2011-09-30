@@ -6,8 +6,8 @@ if (typeof(require) === 'function') {
 }
 
 var simulation = {
-  SERVER: 0,
-  CLIENT: 1,
+  SERVER: 'server',
+  CLIENT: 'client',
 };
 
 simulation.Simulation = function(input_manager, opts) {

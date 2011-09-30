@@ -17,12 +17,6 @@ var entity = {
 
   VISIBLE:          0x0010,
   PHYSICAL:         0x0020,
-
-  // POWERUP FLAGS
-  PU_DOUBLE_RATE:   0x0001,
-  PU_SPREAD_2:      0x0002,
-  PU_SPREAD_3:      0x0004,
-  PU_NONAGUN:       0x0008,
 };
 
 var physics = {
@@ -287,7 +281,7 @@ entity.Player = function(opts) {
       if (input.is_pressed(40)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation + Math.PI), [0, this.reverse_thrust]); }
 
       if (input.is_pressed(32)) {
-        var rate = this.powerup_flags & entity.PU_DOUBLE_RATE ? autofire_rate*0.25 : autofire_rate;
+        var rate = this.powerup_flags & PU_DOUBLE_RATE ? autofire_rate*0.25 : autofire_rate;
         var t = (new Date).getTime();
         if (t - last_fire > rate) {
           this.fire();
@@ -309,19 +303,19 @@ entity.Player = function(opts) {
         return x + Math.random()*variance - 0.5*variance;
       }
 
-      if (this.powerup_flags & (entity.PU_SPREAD_2 | entity.PU_SPREAD_3 | entity.PU_NONAGUN)) {
-        if (this.powerup_flags & entity.PU_SPREAD_2) {
+      if (this.powerup_flags & (PU_DOUBLESPREAD | PU_TRIPLESPREAD | PU_NONAGUN)) {
+        if (this.powerup_flags & PU_DOUBLESPREAD) {
           var spread = 0.0872664626 * 2;
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - spread }), true);
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + spread }), true);
         }
-        if (this.powerup_flags & entity.PU_SPREAD_3) {
+        if (this.powerup_flags & PU_TRIPLESPREAD) {
           spread = 0.0872664626 * 4;
           this.sim.spawn(opts, true);
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, Math.random()) }), true);
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, noisy(1.0, 0.5)) }), true);
         }
-        if (this.powerup_flags & entity.PU_NONAGUN) {
+        if (this.powerup_flags & PU_NONAGUN) {
           var count = 9;
           spread = (2 * Math.PI) / count;
           var variance = 0.25 * spread;
@@ -364,44 +358,56 @@ entity.Player = function(opts) {
       }
     },
 
+    // server
     add_powerup: function(powerup_type) {
-      var pu = powerups.create(powerup_type);
-      console.log("creating: %o", pu);
-      this.powerups[powerup_type] = pu;
-      pubsub.publish('entity:powerup_added', {
-        entity_id: this.id,
-        powerup_type: powerup_type
-      });
+      if (this.sim.type !== 'server') return;
+      
+      this.powerups[powerup_type] = powerups.create(powerup_type);
       this.powerup_flags = calculate_powerup_flags(this.powerups);
-      console.log("After add %o %o", this.powerup_flags, this.powerups);
+      this.sim.net.broadcast('entity_update', { id: this.id, powerups: this.powerups, powerup_flags: this.powerup_flags });
     },
 
+    // client, server
     remove_powerup: function(powerup_type) {
       delete this.powerups[powerup_type];
       this.powerup_flags = calculate_powerup_flags(this.powerups);
-      console.log("After remove %o %o", this.powerup_flags, this.powerups);
     },
 
   }), opts);
 };
 
+PU_DOUBLERATE   = 0x0001;
+PU_DOUBLESPREAD = 0x0002;
+PU_TRIPLESPREAD = 0x0004;
+PU_NONAGUN      = 0x0008;
+
 powerups = {
   create: function(powerup_type) {
     return _.extend({}, powerups[powerup_type]);
   },
+  doublerate: {
+    flags: PU_DOUBLERATE,
+    type: 'doublerate',
+    ttl: 10
+  },
   doublespread: {
-    flags: entity.PU_SPREAD_2,
+    flags: PU_DOUBLESPREAD,
     type: 'doublespread',
     ttl: 10
   },
   triplespread: {
     type: 'triplespread',
-    flags: entity.PU_SPREAD_3,
+    flags: PU_TRIPLESPREAD,
     ttl: 10
   },
   nonagun: {
     type: 'nonagun',
-    flags: entity.PU_NONAGUN,
+    flags: PU_NONAGUN,
+    ttl: 10
+  },
+  awesomeness: {
+    type: 'awesomeness',
+    flags: PU_DOUBLERATE | PU_NONAGUN,
     ttl: 10
   },
 };

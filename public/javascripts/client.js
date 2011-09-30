@@ -137,7 +137,7 @@ Client = function() {
       if (player) { player.name = name; }
     },
 
-    _get_player: function() {
+    get_player: function() {
       return player;
     }
 
@@ -199,7 +199,11 @@ $(function() {
     var $input = $('input[name=say_what]', this).blur();
     var chat_string = $input.val().trim();
     if (chat_string.length > 0) {
-      pubsub.publish('new_chat', { source: name, text: chat_string });
+      pubsub.publish('new_chat', {
+        sender: name,
+        entity_id: client.get_player() ? client.get_player().id : null,
+        text: chat_string
+      });
     }
     $input.val('');
   });
@@ -210,10 +214,7 @@ $(function() {
   });
 
   pubsub.subscribe('chat', function(data) {
-    $chat_message = $('<p><strong></strong> <span></span></p>');
-    $('strong', $chat_message).text(data.source);
-    $('span', $chat_message).text(data.text);
-    $('.chat_messages').prepend($chat_message);
+    $('.chat_messages').prepend(_.template('<p><strong><%= sender %>:</strong> <%= text %></p>', data));
   });
 
 });

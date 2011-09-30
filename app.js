@@ -9,7 +9,9 @@ var app = module.exports = express.createServer();
 var io = require('socket.io').listen(app);
 var _ = require('./public/javascripts/extern/underscore-min.js');
 var simulation = require('./public/javascripts/simulation.js');
+var pubsub = require('./public/javascripts/pubsub.js');
 var sim = simulation.Simulation(null, { type: simulation.SERVER });
+var commands = require('./commands');
 
 var DEBUG_NET = false;
 
@@ -48,7 +50,7 @@ app.get('/', function(req, res){
 sim.net.broadcast = function(msg, data) {
   if (DEBUG_NET && msg !== 'entity_update') { console.log('SEND: %s, %j', msg, data); }
   io.sockets.emit(msg, { data: data, broadcast: false });
-}
+};
 
 io.sockets.on('connection', function(socket) {
 
@@ -86,10 +88,15 @@ io.sockets.on('connection', function(socket) {
 
   network_message('chat', function(data, payload) {
     if (data.text[0] === '/') {
+      var tokens = _.compact(data.text.split(/\s+/));
       payload.broadcast = false;
-      console.log("Command received: %s", data.text);
+      commands.handle_command.call(this, socket, sim, data.sender, data.entity_id, tokens[0].slice(1), tokens.slice(1));
     }
   });
+});
+
+pubsub.subscribe('entity:powerup_added', function(data) {
+  sim.net.broadcast('entity:powerup_added', data);
 });
 
 function timebox(fn, cb) {
