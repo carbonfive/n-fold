@@ -25,6 +25,15 @@ var entity = {
   PU_NONAGUN:       0x0008,
 };
 
+/*
+  Entity definition looks something like this:
+  {
+    _create_collide() - returns a collision object that represents this entity in the quadtree/scene
+    _update_collide() - should update this.collide as necessary
+  }
+ */
+
+
 var physics = {
 
   none: function(dt, sim) {
@@ -66,6 +75,11 @@ var physics = {
 
 };
 
+entity.create = function(opts) {
+  var e = entity[opts.type](opts);
+  e.init();
+  return e;
+};
 
 entity.Entity = function(opts) {
 
@@ -79,7 +93,7 @@ entity.Entity = function(opts) {
     flags: 0,
 
     // rendering
-    render: render.default,
+    render: render.none,
     prerender: render.prerender,
     postrender: render.postrender,
 
@@ -96,13 +110,22 @@ entity.Entity = function(opts) {
 
     // collision stuff
     radius: 0,
+
+    init: function() {
+      this.collide = this._create_collide();
+      this.collide.entity = this;
+    },
+    _create_collide: function() {
+      return collide.AABB_cwh(this.position, this.radius*2, this.radius*2, { flags: entity.PHYSICAL | entity.VISIBLE });
+    },
+    _update_collide: function() {
+      this.collide.update_cwh(this.position, this.radius*2, this.radius*2);
+    },
+
     collide: collide.AABB_cwh([320, 240], 0, 0, {
       entity: obj,
       flags: entity.PHYSICAL | entity.VISIBLE,
     }),
-    update_collide: function() {
-      this.collide.update_cwh(this.position, this.radius*2, this.radius*2);
-    },
 
     simulate: function(dt) {},
 
@@ -161,6 +184,10 @@ entity.Projectile = function(opts) {
     radius: 1,
     age: 0,
     flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER,
+
+    _create_collide: function() { return collide.Point(this.position, { flags: entity.PHYSICAL | entity.VISIBLE }); },
+    _update_collide: function() { this.collide.update_point(this.position); },
+
     simulate: function(dt) {
       this.age += dt;
       if (this.age > this.lifespan) {
@@ -185,7 +212,7 @@ entity.Projectile = function(opts) {
 
 entity.Explosion = function(opts) {
 
-  var o = _.extend(entity.Entity({
+  return _.extend(entity.Entity({
     type: 'Explosion',
     age: 0,
     lifespan: Math.random() * 0.75 + 0.25,
@@ -193,6 +220,11 @@ entity.Explosion = function(opts) {
     radius: 1,
     flags: entity.SPAWN_CLIENT,
     render: render.explosion,
+
+    _create_collide: function() {
+      return collide.Point(this.position, { flags: entity.VISIBLE });
+    },
+    _update_collide: function() {},
 
     simulate: function(dt) {
       with (this) {
@@ -206,13 +238,6 @@ entity.Explosion = function(opts) {
     },
 
   }), opts);
-
-  o.collide = collide.AABB_cwh(o.position, o.radius*2, o.radius*2, {
-    flags: entity.VISIBLE,
-    entity: o
-  });
-
-  return o;
 };
 
 entity.Player = function(opts) {
@@ -224,7 +249,7 @@ entity.Player = function(opts) {
     var flags = 0x0;
     _.each(powerups, function(pu) { flags = (flags | pu.flags); });
     return flags;
-  };
+  }
 
   return _.extend(entity.Entity({
     type: 'Player',
@@ -257,27 +282,6 @@ entity.Player = function(opts) {
       this.acceleration = [0, 0];
       if (input.is_pressed(38)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]); }
       if (input.is_pressed(40)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation + Math.PI), [0, this.reverse_thrust]); }
-
-      /*
-      var acceleration = [0, 0];
-      if (input.is_pressed(69)) { // e
-        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [0, this.thrust]));
-      }
-
-      if (input.is_pressed(68)) { // d
-        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [0, -this.thrust*0.5]));
-      }
-
-      if (input.is_pressed(83)) { // s
-        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [this.thrust, 0]));
-      }
-
-      if (input.is_pressed(70)) { // f
-        acceleration = vec2.add(acceleration, mat2.transform(mat2.rotate(this.rotation), [-this.thrust, 0]));
-      }
-
-      this.acceleration = acceleration;
-      */
 
       if (input.is_pressed(32)) {
         var rate = this.powerup_flags & entity.PU_DOUBLE_RATE ? autofire_rate*0.25 : autofire_rate;

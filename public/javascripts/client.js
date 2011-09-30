@@ -32,14 +32,14 @@ Client = function() {
       if (nfold.debug.net && msg !== 'entity_update') { console.log('RECV: %s, %o', msg, payload ? payload.data : null); }
       fn(payload ? payload.data : null);
     });
-  };
+  }
 
   sim.net = {
     broadcast: function(msg, data) {
       if (nfold.debug.net && msg !== 'entity_update') { console.log('SEND: %s, %o', msg, data); }
       socket.emit(msg, { data: data, broadcast: true });
     }
-  }
+  };
 
   network_message('connect', function() {
     sim.net.broadcast('hello', client_id);
@@ -81,16 +81,16 @@ Client = function() {
     render.render_scene(rendering_context, sim, viewport);
 
     if (nfold.debug.quadtrees || nfold.debug.collisions) {
-      var debug_quads = [sim.world_bounds()];
+      var collide_things = [sim.world_bounds()];
       sim.quadtree.each_node(sim.world_bounds(), function(node) {
-        if (nfold.debug.quadtrees) debug_quads.push(node.extents);
+        if (nfold.debug.quadtrees) collide_things.push(node.extents);
         if (nfold.debug.collisions) {
           _.each(node.objects, function(o) {
-            debug_quads.push(o);
+            collide_things.push(o);
           });
         }
       });
-      render.render_bounding_boxes(rendering_context, viewport, debug_quads);
+      render.render_collision_geometry(rendering_context, viewport, collide_things);
     }
 
     loop_end_time = (new Date).getTime();

@@ -1,11 +1,13 @@
 collide = require('../public/javascripts/collide.js');
 
-describe('collide.AABB_cwh', function() {
+describe('collide', function() {
 
   var aabb = null;
+  var point = null;
 
   beforeEach(function() {
     aabb = collide.AABB_cwh([0, 0], 2, 2);
+    point = collide.Point([1, 2]);
   });
 
   describe('.AABB()', function() {
@@ -17,55 +19,69 @@ describe('collide.AABB_cwh', function() {
       expect(aabb.collide_type).toEqual('aabb');
     });
   });
-
-
+  
   describe('.intersects()', function() {
-    describe('against AABBs', function() {
-      it('is false for non-intersecting bodies', function() {
+    describe('AABB vs AABB', function() {
+      it('is false if non-intersecting', function() {
         var other = collide.AABB_cwh([10, 0], 1, 1);
-        expect(aabb.intersects(other)).toBeFalsy();
+        expect(collide.intersects(aabb, other)).toBeFalsy();
       });
 
-      it('is true for intersecting bodies', function() {
+      it('is true if intersecting', function() {
         var other = collide.AABB_cwh([1, 0], 1, 1);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is true for completely enclosed bodies', function() {
+      it('is true if completely enclosed', function() {
         var other = collide.AABB_cwh([0, 0], 0.5, 0.5);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is true for completely enclosing bodies', function() {
+      it('is true if completely enclosing', function() {
         var other = collide.AABB_cwh([0, 0], 2, 2);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is true for zero-area bodies', function() {
+      it('is true for zero-area AABBs', function() {
         var other = collide.AABB_cwh([0, 0], 0, 0);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is true for AABBs just touching min_x', function() {
+      it('is true if just touching min_x', function() {
         var other = collide.AABB(-2, -1, -1, 1);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is true for AABBs just touching min_y', function() {
+      it('is true if just touching min_y', function() {
         var other = collide.AABB(-1, -2, 1, -1);
-        expect(aabb.intersects(other)).toBeTruthy();
+        expect(collide.intersects(aabb, other)).toBeTruthy();
       });
 
-      it('is false for AABBs just touching max_x', function() {
+      it('is false if just touching max_x', function() {
         var other = collide.AABB(1, -1, 2, 1);
-        expect(aabb.intersects(other)).toBeFalsy();
+        expect(collide.intersects(aabb, other)).toBeFalsy();
       });
 
-      it('is false for AABBs just touching max_y', function() {
+      it('is false if just touching max_y', function() {
         var other = collide.AABB(-1, 1, 1, 2);
-        expect(aabb.intersects(other)).toBeFalsy();
+        expect(collide.intersects(aabb, other)).toBeFalsy();
       });
     });
+    
+  });
+
+  describe('.Point()', function() {
+    it ('succeeds', function() {
+      expect(point).not.toBeNull();
+    });
+
+    it ('sets the correct collide type', function() {
+      expect(point.collide_type).toEqual('point');
+    });
+  });
+
+  describe('.intersects()', function() {
+;
   });
 
 });

@@ -3,16 +3,55 @@ if (typeof(require) === 'function') {
   require('./math.js');
 }
 
-var collide = {
-};
+var collide = {};
 
-function intersect_aabb_aabb(a, b) {
+function _intersect_point_point(p, q) {
+  return p.x == q.x && p.y == q.y;
+}
+
+function _intersect_aabb_point(a, p) {
+  return a.min_x <= p.x &&
+         a.max_x >  p.x &&
+         a.max_y >  p.y &&
+         a.min_y <= p.y;
+}
+
+function _intersect_aabb_aabb(a, b) {
   return a.min_x <= b.max_x &&
          a.max_x >  b.min_x &&
          a.max_y >  b.min_y &&
          a.min_y <= b.max_y;
 }
 
+var _intersection_tests = {
+  aabb: {
+    aabb: _intersect_aabb_aabb,
+    point: _intersect_aabb_point,
+  },
+  point: {
+    point: _intersect_point_point,
+    aabb: function(p, aabb) { return _intersect_aabb_point(aabb, p); }
+  }
+};
+
+collide.intersects = function(c, d) {
+  return _intersection_tests[c.collide_type][d.collide_type](c, d);
+};
+
+collide.Point = function(pos, opts) {
+  return _.extend({
+    flags: 0x0,
+    collide_type: 'point',
+    x: pos[0],
+    y: pos[1],
+
+    update_point: function(p) {
+      this.x = p[0];
+      this.y = p[1];
+    }
+
+  }, opts);
+};
 
 // Axis-aligned bounding box
 // min values are inclusive, max values are exclusive for intersection tests
@@ -25,10 +64,6 @@ collide.AABB = function(x0, y0, x1, y1, opts) {
     max_x: x1,
     min_y: y0,
     max_y: y1,
-
-    intersects: function(other) {
-      return intersect_aabb_aabb(this, other);
-    },
 
     update: function(x0, y0, x1, y1) {
       this.min_x = x0;
@@ -60,25 +95,23 @@ collide.AABB_cwh = function(center, width, height, opts) {
   );
 };
 
-
-
 var cur_quadtree_id = 0;
 
 // Required options:
 //   extents: <AABB>
 collide.QuadTree = function(extents, opts) {
 
-  function _each_node(node, collide, fn) {
-    if (!node.extents.intersects(collide)) { return; }
+  function _each_node(node, c, fn) {
+    if (!collide.intersects(node.extents, c)) { return; }
     fn(node);
-    _.each(node.children, function(child) { _each_node(child, collide, fn); });
+    _.each(node.children, function(child) { _each_node(child, c, fn); });
   }
 
-  function _each_object(node, visited, collide, fn) {
-    _each_node(node, collide, function(subnode) {
+  function _each_object(node, visited, c, fn) {
+    _each_node(node, c, function(subnode) {
       _.each(subnode.objects, function(o) {
         if (visited[o.quadtree_id]) return;
-        if (o.intersects(collide)) {
+        if (collide.intersects(o, c)) {
           fn(o, subnode);
           visited[o.quadtree_id] = true;
         }
@@ -97,29 +130,27 @@ collide.QuadTree = function(extents, opts) {
   }
 
   function _subdivide(node) {
-    var self = node;
-
-    if (self.children.length > 0) { throw new Error("Can't subdivide.  Already have children."); }
+    if (node.children.length > 0) { throw new Error("Can't subdivide.  Already have children."); }
 
     var center_x = (extents.min_x + extents.max_x) * 0.5;
     var center_y = (extents.min_y + extents.max_y) * 0.5;
     var child_opts = {
-      depth: self.depth + 1,
-      max_depth: self.max_depth,
-      parent: self,
-      threshold: self.threshold
+      depth: node.depth + 1,
+      max_depth: node.max_depth,
+      parent: node,
+      threshold: node.threshold
     };
 
-    self.children = [
+    node.children = [
       collide.QuadTree(collide.AABB(extents.min_x, center_y, center_x, extents.max_y), child_opts),
       collide.QuadTree(collide.AABB(center_x, center_y, extents.max_x, extents.max_y), child_opts),
       collide.QuadTree(collide.AABB(center_x, extents.min_y, extents.max_x, center_y), child_opts),
       collide.QuadTree(collide.AABB(extents.min_x, extents.min_y, center_x, center_y), child_opts)
-    ]
+    ];
 
-    _insert_into_children(self, self.objects);
+    _insert_into_children(node, node.objects);
 
-    self.objects = null;
+    node.objects = null;
   }
 
   return _.extend({
@@ -140,7 +171,7 @@ collide.QuadTree = function(extents, opts) {
     },
 
     insert: function(o) {
-      if (!this.extents.intersects(o)) return;
+      if (!collide.intersects(this.extents, o)) return;
       if (this.children.length > 0) {
         _insert_into_children(this, [o]);
       } else {
@@ -168,7 +199,6 @@ collide.QuadTree = function(extents, opts) {
 
   }, opts);
 };
-
 
 if (typeof(exports) !== 'undefined') {
   _.each(collide, function(value, key) { exports[key] = value; });

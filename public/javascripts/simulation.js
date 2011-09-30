@@ -60,6 +60,7 @@ simulation.Simulation = function(opts) {
     if (e.local_player) {
       sim.local_player = e;
     }
+    return e;
   }
 
   function remove_from_world(e) {
@@ -67,6 +68,7 @@ simulation.Simulation = function(opts) {
     if (e.local_player) {
       sim.local_player = null;
     }
+    return e;
   }
 
   var sim = {
@@ -88,13 +90,13 @@ simulation.Simulation = function(opts) {
       var self = this;
 
       self.quadtree = collide.QuadTree(world_bounds, {
-        max_depth: 5,
-        threshold: 4,
+        max_depth: 4,
+        threshold: 8,
       });
 
       collidees = [];
 
-      _(world).each(function(o, key) {
+      _.each(world, function(o, key) {
 
         if (input && o.local_player) {
           o.handle_input(input, dt);
@@ -102,7 +104,7 @@ simulation.Simulation = function(opts) {
 
         o.update_physics(dt, self);
         o.simulate(dt);
-        o.update_collide();
+        o._update_collide();
 
         if (o.remove_me) {
           remove_from_world(o);
@@ -152,7 +154,7 @@ simulation.Simulation = function(opts) {
 
     // Creates and inserts, then calls the .spawn() method
     spawn: function(opts, broadcast) {
-      var e = entity[opts.type](_.extend({ sim: this }, opts));
+      var e = entity.create(_.extend({ sim: this }, opts));
 
       if ((this.type === simulation.CLIENT && !(e.flags & entity.SPAWN_CLIENT)) ||
           (this.type === simulation.SERVER && !(e.flags & entity.SPAWN_SERVER))) {
@@ -167,13 +169,11 @@ simulation.Simulation = function(opts) {
 
     // Creates and inserts
     deserialize: function(opts) {
-      o = entity[opts.type](_.extend({ sim: this }, opts));
-      add_to_world(o);
-      return o;
+      return add_to_world(entity.create(_.extend({ sim: this }, opts)));
     },
 
     kill: function(id, broadcast) {
-      var o = world[id]
+      var o = world[id];
       if (o) {
         o.kill();
         if (broadcast) { this.net.broadcast('kill', o.id); }

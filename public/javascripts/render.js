@@ -15,7 +15,7 @@ var render = {
     ctx.restore();
   },
 
-  default: function(o, ctx) {},
+  none: function(o, ctx) {},
 
   player: function(o, ctx) {
     var local_player_color = [255,255,255];
@@ -110,16 +110,28 @@ var render = {
     ctx.restore();
   },
 
-  render_bounding_boxes: function(ctx, viewport, bounding_boxes) {
+  render_collision_geometry: function(ctx, viewport, collision_objects) {
     ctx.save();
     ctx.translate(-viewport.min_x, -viewport.min_y);
     ctx.strokeStyle = 'red';
     ctx.lineWidth = 0.5;
-    _.each(bounding_boxes, function(aabb) {
-      ctx.strokeRect(aabb.min_x, aabb.min_y, aabb.max_x - aabb.min_x, aabb.max_y - aabb.min_y);
+    ctx.fillStyle = '#0ff';
+    ctx.strokeStyle = '#0ff';
+    _.each(collision_objects, function(c) {
+      if (c.collide_type === 'aabb') {
+        ctx.strokeRect(c.min_x, c.min_y, c.max_x - c.min_x, c.max_y - c.min_y);
+      } else if (c.collide_type === 'point') {
+        ctx.beginPath();
+        var r = 4;
+        ctx.moveTo(c.x-r, c.y-r);
+        ctx.lineTo(c.x+r, c.y+r);
+        ctx.moveTo(c.x+r, c.y-r);
+        ctx.lineTo(c.x-r, c.y+r);
+        ctx.stroke();
+      }
     });
     ctx.restore();
   },
 
-}
+};
 

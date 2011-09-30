@@ -4,9 +4,10 @@ var _ = require('../public/javascripts/extern/underscore-min.js');
 
 var extents = 10000;
 var num_objects = 10000;
-var bounding_boxes = [];
+var collision_objects = [];
 for (var i = 0; i < num_objects; i++) {
-  bounding_boxes.push(collide.AABB_cwh([Math.random()*extents, Math.random()*extents], Math.random()*50, Math.random()*50));
+//  collision_objects.push([collide.Point(Math.random()*extents, Math.random()*extents)]);
+  collision_objects.push(collide.AABB_cwh([Math.random()*extents, Math.random()*extents], Math.random()*50, Math.random()*50));
 }
 
 function fixture_quadtree(max_depth, threshold) {
@@ -31,24 +32,24 @@ var quadtree_collision = new Benchmark.Suite('Quadtree Collision', {
   }
 });
 
-_.each([0,2,4,6,8], function(max_depth) {
-  _.each([2,4,6,8], function(threshold) {
+_.each([4,6,8], function(max_depth) {
+  _.each([4,8], function(threshold) {
 
     var quadtree;
     var interest_area;
 
-    var suite_name = _.template(
-      'Quadtree insert: num_objects=<%= num_objects %>, max_depth=<%= max_depth %>, threshold=<%= threshold %>',
-      { num_objects: num_objects, max_depth: max_depth, threshold: threshold }
-    );
-
-    quadtree_insertion.add(suite_name, function() {
-      _.each(bounding_boxes, function(o) { quadtree.insert(o); });
-    }, {
-      setup: function() {
-        quadtree = fixture_quadtree(max_depth, threshold);
-      }
-    });
+//    var suite_name = _.template(
+//      'Quadtree insert: num_objects=<%= num_objects %>, max_depth=<%= max_depth %>, threshold=<%= threshold %>',
+//      { num_objects: num_objects, max_depth: max_depth, threshold: threshold }
+//    );
+//
+//    quadtree_insertion.add(suite_name, function() {
+//      _.each(collision_objects, function(o) { quadtree.insert(o); });
+//    }, {
+//      setup: function() {
+//        quadtree = fixture_quadtree(max_depth, threshold);
+//      }
+//    });
 
     suite_name = _.template(
       'Quadtree query:  num_objects=<%= num_objects %>, max_depth=<%= max_depth %>, threshold=<%= threshold %>',
@@ -60,10 +61,11 @@ _.each([0,2,4,6,8], function(max_depth) {
       quadtree.each_object(interest_area, function(o) {
         count += 1;
       });
+//      console.log(count);
     }, {
       setup: function() {
         quadtree = fixture_quadtree(max_depth, threshold);
-        _.each(bounding_boxes, function(o) { quadtree.insert(o); });
+        _.each(collision_objects, function(o) { quadtree.insert(o); });
         interest_area = collide.AABB_cwh([extents*0.5, extents*0.5], 800, 600);
       }
     });
