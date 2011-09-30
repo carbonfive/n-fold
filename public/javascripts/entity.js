@@ -25,15 +25,6 @@ var entity = {
   PU_NONAGUN:       0x0008,
 };
 
-/*
-  Entity definition looks something like this:
-  {
-    _create_collide() - returns a collision object that represents this entity in the quadtree/scene
-    _update_collide() - should update this.collide as necessary
-  }
- */
-
-
 var physics = {
 
   none: function(dt, sim) {
@@ -75,9 +66,21 @@ var physics = {
 
 };
 
+/*
+  Entity definition looks something like this:
+  {
+    // things that shouldn't be overridden start with an underscore
+    _create_collide() - returns a collision object that represents this entity in the quadtree/scene
+    _update_collide() - should update this.collide as necessary
+  }
+ */
+
+
+// Main factory method to create entities
+// opts must have a 'type' property, eg. { type: 'player' }
 entity.create = function(opts) {
   var e = entity[opts.type](opts);
-  e.init();
+  e._init();
   return e;
 };
 
@@ -106,26 +109,15 @@ entity.Entity = function(opts) {
     drag_coefficient: 0,
     update_physics: physics.standard,
 
-    debug: false,
-
     // collision stuff
     radius: 0,
 
-    init: function() {
-      this.collide = this._create_collide();
-      this.collide.entity = this;
-    },
-    _create_collide: function() {
+    init_collide: function() {
       return collide.AABB_cwh(this.position, this.radius*2, this.radius*2, { flags: entity.PHYSICAL | entity.VISIBLE });
     },
-    _update_collide: function() {
+    update_collide: function() {
       this.collide.update_cwh(this.position, this.radius*2, this.radius*2);
     },
-
-    collide: collide.AABB_cwh([320, 240], 0, 0, {
-      entity: obj,
-      flags: entity.PHYSICAL | entity.VISIBLE,
-    }),
 
     simulate: function(dt) {},
 
@@ -165,7 +157,18 @@ entity.Entity = function(opts) {
 
     deserialize: function(data) {
       _.extend(this, data);
-    }
+    },
+
+    _init: function() {
+      this.collide = this.init_collide();
+      this.collide.entity = this;
+    },
+
+    _simulate: function(dt, sim) {
+      this.update_physics(dt, sim);
+      this.simulate(dt, sim);
+      this.update_collide(dt, sim);
+    },
 
   }, opts);
 };
@@ -185,8 +188,8 @@ entity.Projectile = function(opts) {
     age: 0,
     flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER,
 
-    _create_collide: function() { return collide.Point(this.position, { flags: entity.PHYSICAL | entity.VISIBLE }); },
-    _update_collide: function() { this.collide.update_point(this.position); },
+    init_collide: function() { return collide.Point(this.position, { flags: entity.PHYSICAL | entity.VISIBLE }); },
+    update_collide: function() { this.collide.update_point(this.position); },
 
     simulate: function(dt) {
       this.age += dt;
@@ -221,10 +224,10 @@ entity.Explosion = function(opts) {
     flags: entity.SPAWN_CLIENT,
     render: render.explosion,
 
-    _create_collide: function() {
+    init_collide: function() {
       return collide.Point(this.position, { flags: entity.VISIBLE });
     },
-    _update_collide: function() {},
+    update_collide: function() {},
 
     simulate: function(dt) {
       with (this) {
@@ -313,14 +316,14 @@ entity.Player = function(opts) {
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + spread }), true);
         }
         if (this.powerup_flags & entity.PU_SPREAD_3) {
-          var spread = 0.0872664626 * 4;
+          spread = 0.0872664626 * 4;
           this.sim.spawn(opts, true);
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, Math.random()) }), true);
           this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, noisy(1.0, 0.5)) }), true);
         }
         if (this.powerup_flags & entity.PU_NONAGUN) {
           var count = 9;
-          var spread = (2 * Math.PI) / count;
+          spread = (2 * Math.PI) / count;
           var variance = 0.25 * spread;
           for (var i = 0; i < count; i++) {
             this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread*i, variance) }), true);
@@ -332,8 +335,12 @@ entity.Player = function(opts) {
 
     },
 
-    simulate: function(dt) {
+    simulate: function(dt, sim) {
       var self = this;
+
+      if (this.local_player) {
+        this.handle_input(sim.input, dt);
+      }
 
       this.health = rangelimit(this.health + this.heal_rate * dt, 0, this.max_health);
 
@@ -341,7 +348,9 @@ entity.Player = function(opts) {
       var removed_powerups = [];
       _.each(self.powerups, function(pu) {
         pu.ttl -= dt;
-        if (pu.ttl <= 0) { removed_powerups.push(pu); };
+        if (pu.ttl <= 0) {
+          removed_powerups.push(pu);
+        }
       });
       _.each(removed_powerups, function(pu) { self.remove_powerup(pu.type); });
     },
@@ -377,10 +386,24 @@ entity.Player = function(opts) {
 };
 
 powerups = {
-  create: function(powerup_type) { return _.extend({}, powerups[powerup_type]); },
-  doublespread: { type: 'doublespread', flags: entity.PU_SPREAD_2, ttl: 10 },
-  triplespread: { type: 'triplespread', flags: entity.PU_SPREAD_3, ttl: 10 },
-  nonagun: { type: 'nonagun', flags: entity.PU_NONAGUN, ttl: 10 },
+  create: function(powerup_type) {
+    return _.extend({}, powerups[powerup_type]);
+  },
+  doublespread: {
+    flags: entity.PU_SPREAD_2,
+    type: 'doublespread',
+    ttl: 10
+  },
+  triplespread: {
+    type: 'triplespread',
+    flags: entity.PU_SPREAD_3,
+    ttl: 10
+  },
+  nonagun: {
+    type: 'nonagun',
+    flags: entity.PU_NONAGUN,
+    ttl: 10
+  },
 };
 
 if (typeof(exports) !== 'undefined') {

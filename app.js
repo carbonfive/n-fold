@@ -9,7 +9,7 @@ var app = module.exports = express.createServer();
 var io = require('socket.io').listen(app);
 var _ = require('./public/javascripts/extern/underscore-min.js');
 var simulation = require('./public/javascripts/simulation.js');
-var sim = simulation.Simulation({ type: simulation.SERVER });
+var sim = simulation.Simulation(null, { type: simulation.SERVER });
 
 var DEBUG_NET = false;
 

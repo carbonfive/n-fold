@@ -22,8 +22,8 @@ Client = function() {
   var height = $canvas.height();
   var viewport = collide.AABB(0, 0, width, height);
 
-  var sim = simulation.Simulation({ type: simulation.CLIENT });
   var im = input.InputManager();
+  var sim = simulation.Simulation(im, { type: simulation.CLIENT });
   var socket = io.connect();
   var player = null;
 
@@ -74,7 +74,7 @@ Client = function() {
 
   function loop() {
     loop_start_time = (new Date).getTime();
-    sim.tick(im);
+    sim.tick();
     if (player) {
       viewport.update_cwh(player.position, width, height);
     }

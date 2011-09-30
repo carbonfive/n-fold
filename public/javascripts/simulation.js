@@ -10,7 +10,7 @@ var simulation = {
   CLIENT: 1,
 };
 
-simulation.Simulation = function(opts) {
+simulation.Simulation = function(input_manager, opts) {
 
   var world = {};
   var collidees = [];
@@ -18,14 +18,14 @@ simulation.Simulation = function(opts) {
   var last_sim_time = 0;
   var world_bounds = collide.AABB(0, 0, 1024, 1024);
 
-  collision_handlers = {
+  var collision_handlers = {
     Player: {
       Projectile: function(sim, player, projectile) {
         sim.kill(projectile.id, true);
         player.damage(projectile.damage, projectile.owner);
       }
     }
-  }
+  };
 
   // move this pubsub crap to network module
   pubsub.subscribe('damage', function(data) {
@@ -78,19 +78,20 @@ simulation.Simulation = function(opts) {
     local_player: null,
     quadtree: null,
     broadcast_entities: [],
+    input: input_manager,
 
     net: {
       broadcast: function() {},
       send: function() {},
     },
 
-    tick: function(input) {
+    tick: function() {
       var start_time = (new Date).getTime();
       var dt = (start_time - last_sim_time) * 0.001;
       var self = this;
 
       self.quadtree = collide.QuadTree(world_bounds, {
-        max_depth: 4,
+        max_depth: 5,
         threshold: 8,
       });
 
@@ -98,13 +99,7 @@ simulation.Simulation = function(opts) {
 
       _.each(world, function(o, key) {
 
-        if (input && o.local_player) {
-          o.handle_input(input, dt);
-        }
-
-        o.update_physics(dt, self);
-        o.simulate(dt);
-        o._update_collide();
+        o._simulate(dt, self);
 
         if (o.remove_me) {
           remove_from_world(o);
@@ -140,7 +135,6 @@ simulation.Simulation = function(opts) {
           if (e !== player && e.owner !== player.id) {
             var handler = collision_handlers[player.type] && collision_handlers[player.type][e.type];
             if (handler) {
-              // console.log([(new Date).getTime(), player.id, 'collided with', e.id].join(' '));
               handler(self, player, e);
             }
           }
