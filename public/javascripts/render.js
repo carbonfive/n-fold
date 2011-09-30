@@ -65,6 +65,15 @@ var render = {
     ctx.closePath();
   },
 
+  debug: function(o, ctx) {
+    ctx.strokeStyle = 'green';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, o.radius, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.stroke();
+  },
+
   render_scene: function(ctx, sim, viewport) {
     ctx.save();
 

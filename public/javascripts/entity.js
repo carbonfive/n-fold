@@ -281,7 +281,7 @@ entity.Player = function(opts) {
       if (input.is_pressed(40)) { this.acceleration = mat2.transform(mat2.rotate(this.rotation + Math.PI), [0, this.reverse_thrust]); }
 
       if (input.is_pressed(32)) {
-        var rate = this.powerup_flags & PU_DOUBLE_RATE ? autofire_rate*0.25 : autofire_rate;
+        var rate = this.powerup_flags & PU_DOUBLERATE ? autofire_rate*0.25 : autofire_rate;
         var t = (new Date).getTime();
         if (t - last_fire > rate) {
           this.fire();
@@ -374,6 +374,28 @@ entity.Player = function(opts) {
     },
 
   }), opts);
+};
+
+entity.powerup = function(opts) {
+  return _.extend(entity.Entity({
+    type: 'powerup',
+    powerup_type: null,
+    radius: 2,
+    flags: entity.SPAWN_SERVER,
+    render: render.debug,
+    init_collide: function() { return collide.Point(this.position, { flags: entity.VISIBLE | entity.PHYSICAL }); },
+    update_collide: function() {},
+    collide_player: function(player) {
+      player.add_powerup(this.powerup_type);
+      this.kill();
+    }
+  }), opts);
+};
+
+entity.powerup_nonagon = function(opts) {
+  return entity.powerup(_.extend({
+    powerup_type: 'nonagun'
+  }, opts));
 };
 
 PU_DOUBLERATE   = 0x0001;

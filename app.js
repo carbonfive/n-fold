@@ -106,6 +106,18 @@ function timebox(fn, cb) {
   cb(et - st);
 }
 
+// simulation setup
+for (var i = 0; i < 10; i++) {
+  var bounds = sim.world_bounds();
+  sim.spawn({
+    type: 'powerup_nonagon',
+    position: [
+      bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
+      bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
+    ]
+  });
+}
+
 function loop() {
   timebox(function() { sim.tick(); }, function(simulation_time) {
     setTimeout(loop, Math.max(20 - simulation_time, 0));

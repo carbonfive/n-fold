@@ -136,6 +136,11 @@ simulation.Simulation = function(input_manager, opts) {
             var handler = collision_handlers[player.type] && collision_handlers[player.type][e.type];
             if (handler) {
               handler(self, player, e);
+            } else {
+              handler = e[('collide_' + player.type).toLowerCase()];
+              if (typeof(handler) === 'function') {
+                handler.call(e, player);
+              }
             }
           }
         });
