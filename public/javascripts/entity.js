@@ -362,7 +362,7 @@ entity.Player = function(opts) {
     add_powerup: function(powerup_type) {
       if (this.sim.type !== 'server') return;
       
-      this.powerups[powerup_type] = powerups.create(powerup_type);
+      this.powerups[powerup_type] = entity.powerups.create(powerup_type);
       this.powerup_flags = calculate_powerup_flags(this.powerups);
       this.sim.net.broadcast('entity_update', { id: this.id, powerups: this.powerups, powerup_flags: this.powerup_flags });
     },
@@ -403,9 +403,9 @@ PU_DOUBLESPREAD = 0x0002;
 PU_TRIPLESPREAD = 0x0004;
 PU_NONAGUN      = 0x0008;
 
-powerups = {
+entity.powerups = {
   create: function(powerup_type) {
-    return _.extend({}, powerups[powerup_type]);
+    return _.extend({}, entity.powerups[powerup_type]);
   },
   doublerate: {
     flags: PU_DOUBLERATE,

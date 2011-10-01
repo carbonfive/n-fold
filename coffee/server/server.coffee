@@ -3,6 +3,7 @@ root = exports ? (->this.server={})()
 socketio = require('socket.io')
 _ = require('../public/javascripts/extern/underscore-min')
 simulation = require('../public/javascripts/simulation')
+entity = require('../public/javascripts/entity')
 pubsub = require('../public/javascripts/pubsub')
 commands = require('../commands')
 
@@ -65,27 +66,36 @@ root.startup = (app) ->
       setTimeout(main_loop, Math.max(20 - simulation_time, 0))
     )
 
-  #seed_powerups = ->
-  #  console.log('seeding...')
-  #  count = null
-  #  sim.each_entity null, (o) ->
-  #    if o.type == 'powerup'
-  #      count += 1
-  #
-  #  # make sure there are 10 powerups in the world
-  #  for (var i = 0; i < (10 - count); i++) {
-  #    var bounds = sim.world_bounds();
-  #    sim.spawn({
-  #      type: 'powerup_nonagon',
-  #      position: [
-  #        bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
-  #        bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
-  #      ]
-  #    }, true);
-  #  }
-  #  setTimeout(seed_powerups, 10 * 1000);
-  #}
-  #
-  #seed_powerups();
+  count_powerups = ->
+    total = 0
+    sim.each_entity null, (e) ->
+      if e.type == 'powerup'
+        total += 1
+    total
 
+  add_powerups = ->
+    bounds = sim.world_bounds()
+    num = 10 - count_powerups()
+    powerup_types = [
+      'doublerate',
+      'doublespread',
+      'triplespread',
+      'nonagun',
+      'awesomeness'
+    ]
+    while num > 0
+      e = sim.spawn {
+        type: 'powerup',
+        powerup_type: powerup_types[Math.floor(Math.random() * powerup_types.length)],
+        position: [
+          bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
+          bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
+        ]
+      }, true
+      num -= 1
+      console.log('Spawned a "' + e.powerup_type + '" powerup')
+    setTimeout add_powerups, 1000
+
+  add_powerups()
+  
   main_loop()
