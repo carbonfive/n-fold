@@ -9,5 +9,6 @@
     , "jasmine-node": "1.0.x"
     , "benchmark": "0.2.x"
     , "microtime": "0.1.x"
+    , "coffee-script": "1.1.x"
   }
 }

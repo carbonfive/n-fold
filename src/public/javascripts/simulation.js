@@ -1,8 +1,8 @@
 if (typeof(require) === 'function') {
-  _ = require('./extern/underscore-min.js');
-  require('./math.js');
-  collide = require('./collide.js');
-  entity = require('./entity.js');
+  _ = require('./extern/underscore-min');
+  require('./math');
+  collide = require('./collide');
+  entity = require('./entity');
 }
 
 var simulation = {
@@ -71,12 +71,16 @@ simulation.Simulation = function(input_manager, opts) {
     return e;
   }
 
+  function create_quadtree() {
+    return collide.QuadTree(world_bounds, { max_depth: 5, threshold: 8 });
+  }
+
   var sim = {
 
     type: simulation.SERVER,
     collide_type: collide.CLIENT,
     local_player: null,
-    quadtree: null,
+    quadtree: create_quadtree(),
     broadcast_entities: [],
     input: input_manager,
 
@@ -90,11 +94,7 @@ simulation.Simulation = function(input_manager, opts) {
       var dt = (start_time - last_sim_time) * 0.001;
       var self = this;
 
-      self.quadtree = collide.QuadTree(world_bounds, {
-        max_depth: 5,
-        threshold: 8,
-      });
-
+      self.quadtree = create_quadtree();
       collidees = [];
 
       _.each(world, function(o, key) {

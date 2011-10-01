@@ -7,9 +7,9 @@ var express = require('express');
 
 var app = module.exports = express.createServer();
 var io = require('socket.io').listen(app);
-var _ = require('./public/javascripts/extern/underscore-min.js');
-var simulation = require('./public/javascripts/simulation.js');
-var pubsub = require('./public/javascripts/pubsub.js');
+var _ = require('./public/javascripts/extern/underscore-min');
+var simulation = require('./public/javascripts/simulation');
+var pubsub = require('./public/javascripts/pubsub');
 var sim = simulation.Simulation(null, { type: simulation.SERVER });
 var commands = require('./commands');
 
@@ -95,10 +95,6 @@ io.sockets.on('connection', function(socket) {
   });
 });
 
-pubsub.subscribe('entity:powerup_added', function(data) {
-  sim.net.broadcast('entity:powerup_added', data);
-});
-
 function timebox(fn, cb) {
   var st = (new Date).getTime();
   fn();
@@ -106,23 +102,36 @@ function timebox(fn, cb) {
   cb(et - st);
 }
 
-// simulation setup
-for (var i = 0; i < 10; i++) {
-  var bounds = sim.world_bounds();
-  sim.spawn({
-    type: 'powerup_nonagon',
-    position: [
-      bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
-      bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
-    ]
-  });
-}
-
 function loop() {
   timebox(function() { sim.tick(); }, function(simulation_time) {
     setTimeout(loop, Math.max(20 - simulation_time, 0));
   });
 }
+
+function seed_powerups() {
+  console.log('seeding...');
+  var count;
+  sim.each_entity(null, function(o) { 
+    if (o.type === 'powerup') {
+      count += 1;
+    }
+  });
+
+  // make sure there are 10 powerups in the world
+  for (var i = 0; i < (10 - count); i++) {
+    var bounds = sim.world_bounds();
+    sim.spawn({
+      type: 'powerup_nonagon',
+      position: [
+        bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
+        bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
+      ]
+    }, true);
+  }
+  setTimeout(seed_powerups, 10 * 1000);
+}
+
+seed_powerups();
 
 loop();
 

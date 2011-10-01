@@ -1,6 +1,6 @@
 if (typeof(require) === 'function') {
-  _ = require('./extern/underscore-min.js');
-  require('./math.js');
+  _ = require('./extern/underscore-min');
+  require('./math');
 }
 
 var collide = {};

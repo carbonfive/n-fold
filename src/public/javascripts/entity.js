@@ -1,8 +1,8 @@
 if (typeof(require) === 'function') {
-  _ = require('./extern/underscore-min.js');
-  require('./math.js');
-  render = ('./render.js');
-  pubsub = require('./pubsub.js');
+  _ = require('./extern/underscore-min');
+  require('./math');
+  render = ('./render');
+  pubsub = require('./pubsub');
 }
 
 var entity = {
