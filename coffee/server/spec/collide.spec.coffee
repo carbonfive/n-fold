@@ -1,4 +1,4 @@
-collide = require('../public/javascripts/collide')
+collide = require('../../public/javascripts/collide')
 
 describe 'collide', ->
   aabb = null

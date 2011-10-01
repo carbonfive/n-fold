@@ -1,5 +1,5 @@
-simulation = require('../public/javascripts/simulation.js');
-collide = require('../public/javascripts/collide.js');
+simulation = require('../../public/javascripts/simulation');
+collide = require('../../public/javascripts/collide');
 
 describe 'collide', ->
   aabb = null
