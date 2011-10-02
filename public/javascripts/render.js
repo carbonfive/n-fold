@@ -18,6 +18,13 @@ var render = {
   none: function(o, ctx) {},
 
   player: function(o, ctx) {
+
+//    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+//    ctx.beginPath();
+//      ctx.arc(0, 0, o.radius*8, 0, Math.PI * 2);
+//      ctx.stroke();
+//    ctx.closePath();
+    
     var local_player_color = [255,255,255];
     var remote_player_color = [128,128,128];
     var damaged_color = [255,0,0];

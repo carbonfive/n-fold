@@ -6,6 +6,7 @@ simulation = require('../public/javascripts/simulation')
 entity = require('../public/javascripts/entity')
 pubsub = require('../public/javascripts/pubsub')
 commands = require('../commands')
+log = require('../public/javascripts/build/log')
 
 sim = simulation.Simulation(null, { type: simulation.SERVER })
 
@@ -37,7 +38,7 @@ root.startup = (app) ->
 
     network_message 'hello', (data) ->
       socket.set('client_id', data)
-      console.log("Client " + data + " connected.")
+      log.debug("Client " + data + " connected from " + socket.handshake.address.address);
 
     network_message 'disconnect', ->
       socket.get 'client_id', (err, client_id) ->
@@ -93,7 +94,7 @@ root.startup = (app) ->
         ]
       }, true
       num -= 1
-      console.log('Spawned a "' + e.powerup_type + '" powerup')
+      log.debug('Spawned a "' + e.powerup_type + '" powerup')
     setTimeout add_powerups, 1000
 
   add_powerups()
