@@ -1,4 +1,4 @@
-simulation = require('../../public/javascripts/simulation');
+simulation = require('../../public/javascripts/build/simulation');
 collide = require('../../public/javascripts/collide');
 
 describe 'collide', ->
