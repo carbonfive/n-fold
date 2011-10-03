@@ -1,3 +1,26 @@
+function _radial_powerup(n) {
+  return function(o, ctx) {
+    var offset = ((new Date).getTime()/500) % (2*Math.PI);
+    ctx.fillStyle = 'rgba(255,255,0,1)';
+    ctx.lineWidth = 1;
+    for (var i=0; i<n; i++) {
+      ctx.save();
+      ctx.rotate(i * 2*Math.PI / n + offset);
+      ctx.translate(0, 5);
+      _circle(ctx, 1.5, 'rgba(255,255,0,1)');
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+  };
+}
+
+function _circle(ctx, radius, color) {
+  ctx.strokeStyle = color;
+  ctx.beginPath();
+  ctx.arc(0, 0, radius, 0, Math.PI * 2);
+}
+
 var render = {
 
   prerender: function(o, ctx) {
@@ -19,12 +42,6 @@ var render = {
 
   player: function(o, ctx) {
 
-//    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
-//    ctx.beginPath();
-//      ctx.arc(0, 0, o.radius*8, 0, Math.PI * 2);
-//      ctx.stroke();
-//    ctx.closePath();
-    
     var local_player_color = [255,255,255];
     var remote_player_color = [128,128,128];
     var damaged_color = [255,0,0];
@@ -55,29 +72,39 @@ var render = {
   projectile: function(o, ctx) {
     var render_radius = 2.5;
     ctx.fillStyle = '#fff';
-    ctx.strokeStyle = 'rgba(255,141,0,1)';
     ctx.lineWidth = Math.round(render_radius * 0.5).toString();
-    ctx.beginPath();
-      ctx.arc(0, 0, render_radius, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    ctx.closePath();
+    _circle(ctx, render_radius, 'rgba(255,141,0,1)');
+    ctx.fill();
+    ctx.stroke();
   },
 
   explosion: function(o, ctx) {
     ctx.fillStyle = 'rgba(255,141,0,' + (1.0 - o.age / o.lifespan).toFixed(1) + ')';
-    ctx.beginPath();
-    ctx.arc(0, 0, o.radius, 0, Math.PI * 2);
+    _circle(ctx, o.render_radius);
     ctx.fill();
-    ctx.closePath();
   },
 
+  powerup_doublerate: function(o, ctx) {
+    ctx.lineWidth = 1;
+    ctx.fillStyle = 'red';
+    _circle(ctx, 2);
+    ctx.fill();
+    _circle(ctx, 8, 'red');
+    ctx.stroke();
+  },
+
+  powerup_awesomeness: function(o, ctx) {
+    render.powerup_nonagun(o, ctx);
+    render.powerup_doublerate(o, ctx);
+  },
+
+  powerup_nonagun: _radial_powerup(5),
+  powerup_doublespread: _radial_powerup(2),
+  powerup_triplespread: _radial_powerup(3),
+
   debug: function(o, ctx) {
-    ctx.strokeStyle = 'green';
     ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.arc(0, 0, o.radius, 0, Math.PI * 2);
-    ctx.closePath();
+    _circle(ctx, o.radius, 'green');
     ctx.stroke();
   },
 

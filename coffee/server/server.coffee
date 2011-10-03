@@ -70,7 +70,7 @@ root.startup = (app) ->
   count_powerups = ->
     total = 0
     sim.each_entity null, (e) ->
-      if e.type == 'powerup'
+      if e.type.match /^powerup_/
         total += 1
     total
 
@@ -85,14 +85,15 @@ root.startup = (app) ->
       'awesomeness'
     ]
     while num > 0
-      e = sim.spawn {
-        type: 'powerup',
-        powerup_type: powerup_types[Math.floor(Math.random() * powerup_types.length)],
+      powerup_type = powerup_types[Math.floor(Math.random() * powerup_types.length)]
+      e = sim.spawn
+        type: 'powerup_' + powerup_type
+        powerup_type: powerup_type
         position: [
           bounds.min_x + (Math.random() * bounds.max_x - bounds.min_x),
           bounds.min_y + (Math.random() * bounds.max_y - bounds.min_y)
         ]
-      }, true
+      , true
       num -= 1
       log.debug('Spawned a "' + e.powerup_type + '" powerup')
     setTimeout add_powerups, 1000

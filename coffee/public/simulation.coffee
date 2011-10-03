@@ -19,7 +19,7 @@ simulation.Simulation = (input_manager, opts) ->
   collidees = []
   callbacks = []
   last_sim_time = 0
-  world_bounds = collide.AABB(0, 0, 1024, 1024)
+  world_bounds = collide.AABB(0, 0, 400, 400)
 
   collision_handlers =
     Player:

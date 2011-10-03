@@ -1,11 +1,11 @@
-entity = exports ? (->this.entity={})()
+entity = exports ? (->@entity={})()
 
 if exports?
   (->
-    this._ = require('../extern/underscore-min')
+    @_ = require('../extern/underscore-min')
     require('../math')
-    this.render = ('../render')
-    this.pubsub = require('../pubsub')
+    @render = require('../render')
+    @pubsub = require('../pubsub')
   )()
 
 _.extend entity,
@@ -21,295 +21,272 @@ _.extend entity,
   PHYSICAL:         0x0020
 
 physics =
-
   none: (dt, sim) ->
 
   standard: (dt, sim) ->
-    o = this
-    world_bounds = sim.world_bounds()
-    if (vec2.nonzero(o.acceleration))
-      o.velocity = vec2.add(o.velocity, vec2.scale(o.acceleration, dt))
+    @velocity = vec2.add(@velocity, vec2.scale(@acceleration, dt)) if vec2.nonzero(@acceleration)
+    @rotation += rangewrap(@rotation + @angular_velocity*dt) if @angular_velocity != 0
 
-    if (o.angular_velocity != 0)
-      o.rotation += rangewrap(o.rotation + o.angular_velocity*dt);
+    if vec2.nonzero(@velocity)
+      world_bounds = sim.world_bounds()
+      if (@drag_coefficient)
+        speed = vec2.length(@velocity)
+        drag = vec2.scale(vec2.normalize(@velocity), -speed*speed*@drag_coefficient)
+        @velocity = vec2.add(@velocity, vec2.scale(drag, dt))
 
-    if (vec2.nonzero(o.velocity))
-      if (o.drag_coefficient)
-        speed = vec2.length(o.velocity)
-        drag = vec2.scale(vec2.normalize(o.velocity), -speed*speed*o.drag_coefficient)
-        o.velocity = vec2.add(o.velocity, vec2.scale(drag, dt))
-
-      new_pos = vec2.add(o.position, vec2.scale(o.velocity, dt))
-      o.position = [
+      new_pos = vec2.add(@position, vec2.scale(@velocity, dt))
+      @position = [
         rangelimit(new_pos[0], world_bounds.min_x, world_bounds.max_x - 0.00001),
         rangelimit(new_pos[1], world_bounds.min_y, world_bounds.max_y - 0.00001)
       ]
-
-      if (o.position[0] == world_bounds.min_x || o.position[0] == world_bounds.max_x)
-        o.velocity[0] = 0
-      if (o.position[1] == world_bounds.min_y || o.position[1] == world_bounds.max_y)
-        o.velocity[1] = 0
+      @velocity[0] = 0 if (@position[0] == world_bounds.min_x || @position[0] == world_bounds.max_x)
+      @velocity[1] = 0 if (@position[1] == world_bounds.min_y || @position[1] == world_bounds.max_y)
 
 # Main factory method to create entities
 # opts must have a 'type' property, eg. { type: 'player' }
 entity.create = (opts) ->
-  e = entity[opts.type](opts)
-  e._init()
-  e
+  ctor = entity[opts.type]
+  new ctor(opts)
 
-entity.Entity = (opts) ->
-  obj = {}
-  defaults =
-    id: (opts.type || 'Entity') + ':' + Math.round(Math.random() * 0xFFFFFFFF).toString(16)
-    type: 'Entity'
+class Entity
 
-    flags: 0
+  type: 'Entity'
+  flags: 0
 
-    # rendering
-    render: render.none
-    prerender: render.prerender
-    postrender: render.postrender
+  update_physics: physics.standard
+  # rendering
+  render: (o, ctx) -> (render[@type.toLowerCase()] ? render.debug)(o, ctx)
+  prerender: render.prerender
+  postrender: render.postrender
 
+  constructor: (opts) ->
+    @id = (opts.type || 'Entity') + ':' + Math.round(Math.random() * 0xFFFFFFFF).toString(16)
     # physics
-    position: [320, 240]
-    velocity: [0, 0]
-    acceleration: [0, 0]
-    angular_velocity: 0
-    rotation: 0
-    drag_coefficient: 0
-    update_physics: physics.standard
+    @position = [320, 240]
+    @velocity = [0, 0]
+    @acceleration = [0, 0]
+    @angular_velocity = 0
+    @rotation = 0
 
-    # collision stuff
-    radius: 0
+    _.extend(this, opts)
+    @collide = @init_collide()
+    @collide.entity = this
 
-    init_collide: -> collide.AABB_cwh(this.position, this.radius*2, this.radius*2, { flags: entity.PHYSICAL | entity.VISIBLE })
-    update_collide: -> this.collide.update_cwh(this.position, this.radius*2, this.radius*2)
-    simulate: (dt) ->
-    rotate: (theta) -> this.rotation += rangewrap(theta, 2*Math.PI)
-    spawn: ->
-    kill: ->
-      this.remove_me = true
-      pubsub.publish('killed', this.id)
+  init_collide: -> collide.AABB_cwh(@position, @radius*2, @radius*2, { flags: entity.PHYSICAL | entity.VISIBLE })
+  update_collide: -> @collide.update_cwh(@position, @radius*2, @radius*2)
+  simulate: (dt) ->
+  rotate: (theta) -> @rotation += rangewrap(theta, 2*Math.PI)
+  spawn: ->
+  kill: ->
+    @remove_me = true
+    pubsub.publish('killed', @id)
 
-    position_data: ->
-      id: this.id
-      position: this.position
-      velocity: this.velocity
-      acceleration: this.acceleration
-      rotation: this.rotation
+  position_data: ->
+    id: @id
+    position: @position
+    velocity: @velocity
+    acceleration: @acceleration
+    rotation: @rotation
 
-    serialize: ->
-      out = {};
-      _.each(this, (v, k) ->
-        if (_.isNumber(v) || _.isArray(v) || _.isString(v))
-          out[k] = v
-      )
-      out
+  serialize: ->
+    out = {}
+    _.each this, (v, k) ->
+      if (_.isNumber(v) || _.isArray(v) || _.isString(v))
+        out[k] = v
+    out
 
-    deserialize: (data) ->
-      _.extend(this, data)
+  deserialize: (data) ->
+    _.extend(this, data)
 
-    _init: ->
-      this.collide = this.init_collide()
-      this.collide.entity = this
+  _simulate: (dt, sim) ->
+    @update_physics(dt, sim)
+    @simulate(dt, sim)
+    @update_collide(dt, sim)
 
-    _simulate: (dt, sim) ->
-      this.update_physics(dt, sim)
-      this.simulate(dt, sim)
-      this.update_collide(dt, sim)
+entity.Projectile = class extends Entity
+  constructor: (opts) ->
+    super opts
+    @age = 0
 
-  _.extend(obj, defaults, opts)
-
-entity.Projectile = (opts) ->
   initial_velocity = 300
+  type: 'Projectile'
+  damage: 25
+  radius: 1
 
-  o =
-    type: 'Projectile'
-    damage: 25
-    render: render.projectile
+  lifespan: 2.0
+  flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER
 
-    lifespan: 2.0
-    radius: 1
-    age: 0
-    flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER
+  init_collide: -> collide.Point(@position, { flags: entity.PHYSICAL | entity.VISIBLE })
+  update_collide: -> @collide.update_point(@position)
 
-    init_collide: -> collide.Point(this.position, { flags: entity.PHYSICAL | entity.VISIBLE })
-    update_collide: -> this.collide.update_point(this.position)
+  simulate: (dt) ->
+    @age += dt
+    @kill() if @age > @lifespan
 
-    simulate: (dt) ->
-      this.age += dt
-      if (this.age > this.lifespan)
-        this.kill()
+  spawn: ->
+    @velocity = vec2.add(@velocity, mat2.transform(mat2.rotate(@rotation), [0, initial_velocity]))
 
-    spawn: ->
-      this.velocity = vec2.add(this.velocity, mat2.transform(mat2.rotate(this.rotation), [0, initial_velocity]))
+  kill: ->
+    @remove_me = true
+    @sim.spawn({ type: 'Explosion', position: @position }, false)
 
-    kill: ->
-      this.remove_me = true
-      this.sim.spawn({ type: 'Explosion', position: this.position }, false)
+entity.Explosion = class extends Entity
+  constructor: (opts) ->
+    super opts
+    @render_radius = 1
 
-  _.extend(entity.Entity(o), opts)
+  type: 'Explosion'
+  age: 0
+  lifespan: Math.random() * 0.75 + 0.25
+  expansion_rate: Math.random() * 100 + 50
+  radius: 0
+  flags: entity.SPAWN_CLIENT
 
+  init_collide: -> collide.Point(@position, { flags: entity.VISIBLE })
+  update_collide: ->
 
-entity.Explosion = (opts) ->
-  o =
-    type: 'Explosion'
-    age: 0
-    lifespan: Math.random() * 0.75 + 0.25
-    expansion_rate: Math.random() * 100 + 50
-    radius: 1
-    flags: entity.SPAWN_CLIENT
-    render: render.explosion
+  simulate: (dt) ->
+    @age += dt
+    if (@age >= @lifespan) then @kill() else @render_radius += @expansion_rate * dt
 
-    init_collide: -> collide.Point(this.position, { flags: entity.VISIBLE })
-    update_collide: ->
+entity.Player = class extends Entity
+  type: 'Player'
+  flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT
 
-    simulate: (dt) ->
-      this.age += dt;
-      if (this.age >= this.lifespan)
-        this.kill()
-      else
-        this.radius += this.expansion_rate * dt;
+  heal_rate: 10
+  rotate_speed: 4.0
+  thrust: 500.0
+  reverse_thrust: 250.0
 
-  _.extend(entity.Entity(o), opts)
+  # physics
+  drag_coefficient: 0.01
 
-entity.Player = (opts) ->
+  # collide
+  radius: 8
 
   autofire_rate = 250
-  last_fire = 0
 
+  constructor: (opts) ->
+    super opts
+    @last_fire = 0
+    @health = 100
+    @max_health = 100
+    @name = 'player'
+    @powerup_flags = 0x0
+    @powerups = {}
+    @projectile = 'Projectile'
+    
   calculate_powerup_flags = (powerups) ->
     flags = 0x0
     _.each(powerups, (pu) -> flags = (flags | pu.flags))
     flags
 
-  o =
-    type: 'Player'
-    flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT
+  handle_input: (input, dt) ->
+    @rotate(-@rotate_speed * dt) if (input.is_pressed(37))
+    @rotate( @rotate_speed * dt) if (input.is_pressed(39))
 
-    heal_rate: 10
-    health: 100
-    max_health: 100
-    name: 'player'
-    rotate_speed: 4.0
-    thrust: 500.0
-    reverse_thrust: 250.0
+    @acceleration = [0, 0]
+    @acceleration = mat2.transform(mat2.rotate(@rotation), [0, @thrust]) if input.is_pressed(38)
+    @acceleration = mat2.transform(mat2.rotate(@rotation + Math.PI), [0, @reverse_thrust]) if input.is_pressed(40)
 
-    render: render.player
+    if input.is_pressed(32)
+      rate = if (@powerup_flags & PU_DOUBLERATE) then autofire_rate*0.5 else autofire_rate
+      t = (new Date).getTime()
+      if (t - @last_fire > rate)
+        @fire()
+        @last_fire = t
 
-    powerup_flags: 0x0
-    powerups: {}
-    projectile: 'Projectile'
+  fire: ->
+    opts =
+      type: @projectile
+      owner: @id
+      position: @position
+      velocity: @velocity
+      rotation: @rotation
 
-    # physics
-    drag_coefficient: 0.01
+    noisy = (x, variance) -> x + Math.random()*variance - 0.5*variance
 
-    # collide
-    radius: 8
+    if (@powerup_flags & (PU_DOUBLESPREAD | PU_TRIPLESPREAD | PU_NONAGUN))
+      if (@powerup_flags & PU_DOUBLESPREAD)
+        spread = 0.0872664626 * 2
+        @sim.spawn(_.extend({}, opts, { rotation: opts.rotation - spread }), true)
+        @sim.spawn(_.extend({}, opts, { rotation: opts.rotation + spread }), true)
+      if (@powerup_flags & PU_TRIPLESPREAD)
+        spread = 0.0872664626 * 4
+        @sim.spawn(opts, true)
+        @sim.spawn(_.extend({}, opts, { rotation: opts.rotation - noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, Math.random()) }), true)
+        @sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, noisy(1.0, 0.5)) }), true)
+      if (@powerup_flags & PU_NONAGUN)
+        count = 9;
+        spread = (2 * Math.PI) / count
+        variance = 0.25 * spread;
+        i = 0
+        while i < count
+          @sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread*i, variance) }), true)
+          i++
+    else
+      @sim.spawn(opts, true)
 
-    handle_input: (input, dt) ->
-      if (input.is_pressed(37)) 
-        this.rotate(-this.rotate_speed * dt)
-      if (input.is_pressed(39))
-        this.rotate( this.rotate_speed * dt)
+  simulate: (dt, sim) ->
+    @handle_input(sim.input, dt) if @local_player
+    @health = rangelimit(@health + @heal_rate * dt, 0, @max_health)
 
-      this.acceleration = [0, 0]
-      if (input.is_pressed(38)) 
-        this.acceleration = mat2.transform(mat2.rotate(this.rotation), [0, this.thrust])
-      if (input.is_pressed(40))
-        this.acceleration = mat2.transform(mat2.rotate(this.rotation + Math.PI), [0, this.reverse_thrust])
+    removed_powerups = []
+    _.each @powerups, (pu) ->
+      pu.ttl -= dt
+      removed_powerups.push(pu) if pu.ttl <= 0
+    _.each(removed_powerups, ((pu) -> @remove_powerup(pu.type)), this)
 
-      if (input.is_pressed(32))
-        rate = if (this.powerup_flags & PU_DOUBLERATE) then autofire_rate*0.25 else autofire_rate
-        t = (new Date).getTime()
-        if (t - last_fire > rate)
-          this.fire()
-          last_fire = t
+  damage: (amount, owner) ->
+    @health -= amount
+    if (@health <= 0)
+      @kill()
+    else
+      pubsub.publish('damage', { entity: this, amount: amount })
 
-    fire: ->
-      opts =
-        type: this.projectile
-        owner: this.id
-        position: this.position
-        velocity: this.velocity
-        rotation: this.rotation
+  # server
+  add_powerup: (powerup_type) ->
+    return if (@sim.type != 'server')
+    @powerups[powerup_type] = entity.powerups.create(powerup_type)
+    @powerup_flags = calculate_powerup_flags(@powerups)
+    @sim.net.broadcast('entity_update', { id: @id, powerups: @powerups, powerup_flags: @powerup_flags })
 
-      noisy = (x, variance) -> x + Math.random()*variance - 0.5*variance
+  # client, server
+  remove_powerup: (powerup_type) ->
+    delete @powerups[powerup_type]
+    @powerup_flags = calculate_powerup_flags(@powerups)
 
-      if (this.powerup_flags & (PU_DOUBLESPREAD | PU_TRIPLESPREAD | PU_NONAGUN))
-        if (this.powerup_flags & PU_DOUBLESPREAD)
-          spread = 0.0872664626 * 2
-          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - spread }), true)
-          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + spread }), true)
-        if (this.powerup_flags & PU_TRIPLESPREAD)
-          spread = 0.0872664626 * 4
-          this.sim.spawn(opts, true)
-          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation - noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, Math.random()) }), true)
-          this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread, 0.1), velocity: vec2.scale(opts.velocity, noisy(1.0, 0.5)) }), true)
-        if (this.powerup_flags & PU_NONAGUN)
-          count = 9;
-          spread = (2 * Math.PI) / count
-          variance = 0.25 * spread;
-          i = 0
-          while i < count
-            this.sim.spawn(_.extend({}, opts, { rotation: opts.rotation + noisy(spread*i, variance) }), true)
-            i++
-      else
-        this.sim.spawn(opts, true)
+entity.powerup = class extends Entity
+  type: 'powerup'
+  powerup_type: null
+  radius: 2
+  flags: entity.SPAWN_SERVER
 
-    simulate: (dt, sim) ->
-      self = this
-      this.handle_input(sim.input, dt) if this.local_player
-      this.health = rangelimit(this.health + this.heal_rate * dt, 0, this.max_health)
+  init_collide: -> collide.Point(@position, { flags: entity.VISIBLE | entity.PHYSICAL })
+  update_collide: ->
+  collide_player: (player) ->
+    player.add_powerup(@powerup_type)
+    @kill()
 
-      # update powerups
-      removed_powerups = []
-      _.each(self.powerups, (pu) ->
-        pu.ttl -= dt
-        removed_powerups.push(pu) if (pu.ttl <= 0)  
-      )
-      _.each(removed_powerups, (pu) -> self.remove_powerup(pu.type))
+entity.powerup_doublerate = class extends entity.powerup
+  type: 'powerup_doublerate'
+  powerup_type: 'doublerate'
 
-    damage: (amount, owner) ->
-      this.health -= amount
-      if (this.health <= 0)
-        this.kill()
-      else
-        pubsub.publish('damage', { entity: this, amount: amount })
+entity.powerup_doublespread = class extends entity.powerup
+  type: 'powerup_doublespread'
+  powerup_type: 'doublespread'
 
+entity.powerup_triplespread = class extends entity.powerup
+  type: 'powerup_triplespread'
+  powerup_type: 'triplespread'
 
-    # server
-    add_powerup: (powerup_type) ->
-      return if (this.sim.type != 'server')
-      this.powerups[powerup_type] = entity.powerups.create(powerup_type)
-      this.powerup_flags = calculate_powerup_flags(this.powerups)
-      this.sim.net.broadcast('entity_update', { id: this.id, powerups: this.powerups, powerup_flags: this.powerup_flags })
+entity.powerup_nonagun = class extends entity.powerup
+  type: 'powerup_nonagun'
+  powerup_type: 'nonagun'
 
-    # client, server
-    remove_powerup: (powerup_type) ->
-      delete this.powerups[powerup_type]
-      this.powerup_flags = calculate_powerup_flags(this.powerups)
-
-  _.extend(entity.Entity(o), opts);
-
-entity.powerup = (opts) ->
-  _.extend(entity.Entity({
-    type: 'powerup',
-    powerup_type: null,
-    radius: 2,
-    flags: entity.SPAWN_SERVER,
-    render: render.debug,
-    init_collide: -> collide.Point(this.position, { flags: entity.VISIBLE | entity.PHYSICAL }),
-    update_collide: ->,
-    collide_player: (player) ->
-      player.add_powerup(this.powerup_type)
-      this.kill()
-  }), opts)
-
-entity.powerup_nonagon = (opts) ->
-  entity.powerup(_.extend({
-    powerup_type: 'nonagun'
-  }, opts))
+entity.powerup_awesomeness = class extends entity.powerup
+  type: 'powerup_awesomeness'
+  powerup_type: 'awesomeness'
 
 PU_DOUBLERATE   = 0x0001
 PU_DOUBLESPREAD = 0x0002
