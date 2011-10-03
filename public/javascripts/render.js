@@ -1,15 +1,15 @@
 function _radial_powerup(n) {
   return function(o, ctx) {
     var offset = ((new Date).getTime()/500) % (2*Math.PI);
-    ctx.fillStyle = 'rgba(255,255,0,1)';
-    ctx.lineWidth = 1;
+    ctx.fillStyle = 'rgba(255,161,4,1)';
+    ctx.lineWidth = 2;
     for (var i=0; i<n; i++) {
       ctx.save();
       ctx.rotate(i * 2*Math.PI / n + offset);
       ctx.translate(0, 5);
-      _circle(ctx, 1.5, 'rgba(255,255,0,1)');
-      ctx.fill();
+      _circle(ctx, 2, 'rgba(3,173,235,1)');
       ctx.stroke();
+      ctx.fill();
       ctx.restore();
     }
   };
@@ -86,10 +86,10 @@ var render = {
 
   powerup_doublerate: function(o, ctx) {
     ctx.lineWidth = 1;
-    ctx.fillStyle = 'red';
+    ctx.fillStyle = 'rgba(3,173,235,1)';
     _circle(ctx, 2);
     ctx.fill();
-    _circle(ctx, 8, 'red');
+    _circle(ctx, 8, 'rgba(3,173,235,1)');
     ctx.stroke();
   },
 

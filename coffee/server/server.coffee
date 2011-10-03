@@ -84,7 +84,7 @@ root.startup = (app) ->
       'nonagun',
       'awesomeness'
     ]
-    while num > 0
+    if num > 0
       powerup_type = powerup_types[Math.floor(Math.random() * powerup_types.length)]
       e = sim.spawn
         type: 'powerup_' + powerup_type
@@ -96,7 +96,7 @@ root.startup = (app) ->
       , true
       num -= 1
       log.debug('Spawned a "' + e.powerup_type + '" powerup')
-    setTimeout add_powerups, 1000
+    setTimeout add_powerups, 10000
 
   add_powerups()
   
