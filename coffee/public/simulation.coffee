@@ -21,12 +21,6 @@ simulation.Simulation = (input_manager, opts) ->
   last_sim_time = 0
   world_bounds = collide.AABB(0, 0, 400, 400)
 
-  collision_handlers =
-    Player:
-      Projectile: (sim, player, projectile) ->
-        sim.kill(projectile.id, true)
-        player.damage(projectile.damage, projectile.owner)
-
   # move this pubsub crap to network module
   pubsub.subscribe 'damage', (data) ->
     sim.net.broadcast 'entity_update',
@@ -109,14 +103,9 @@ simulation.Simulation = (input_manager, opts) ->
       _.each players, (player) ->
         self.quadtree.each_object player.collide, (collidee) ->
           e = collidee.entity
-          if e != player && e.owner != player.id
-            handler = collision_handlers[player.type] && collision_handlers[player.type][e.type]
-            if handler
-              handler(self, player, e)
-            else
-              handler = e[('collide_' + player.type).toLowerCase()]
-              if typeof(handler) == 'function'
-                handler.call(e, player)
+          handler = e[('collide_' + player.type).toLowerCase()]
+          if handler? && e != player && e.owner != player.id
+            handler.call(e, player)
 
     find_entity: (id) ->
       world[id] || null
@@ -143,28 +132,23 @@ simulation.Simulation = (input_manager, opts) ->
       if o
         o.kill()
         this.net.broadcast('kill', o.id) if broadcast
-      else
-        # console.log("Couldn't find object ", id, " to kill")
 
     update_entity: (data) ->
       o = world[data.id]
       _.extend(o, data) if o
 
     synchronize: (entities) ->
-      self = this
       world = {}
-      _.each entities, (opts) ->
-        self.deserialize(opts)
+      _.each entities, ((opts) -> @deserialize(opts)), this
 
     get_objects: -> _.values(world)
 
     each_entity: (bounds, fn) ->
-      this.quadtree.each_object(bounds, (o) -> fn(o.entity) )
+      @quadtree.each_object(bounds, (o) -> fn(o.entity) )
 
     get_world: -> world
     world_bounds: -> world_bounds
-
-    get_current: -> this.find_entity(this.current)
+    get_current: -> @find_entity(@current)
 
     random_location: ->
       [

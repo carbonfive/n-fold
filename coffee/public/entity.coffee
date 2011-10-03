@@ -45,19 +45,11 @@ physics =
 # Main factory method to create entities
 # opts must have a 'type' property, eg. { type: 'player' }
 entity.create = (opts) ->
-  ctor = entity[opts.type]
-  new ctor(opts)
+  new entity[opts.type](opts)
 
 class Entity
-
   type: 'Entity'
   flags: 0
-
-  update_physics: physics.standard
-  # rendering
-  render: (o, ctx) -> (render[@type.toLowerCase()] ? render.debug)(o, ctx)
-  prerender: render.prerender
-  postrender: render.postrender
 
   constructor: (opts) ->
     @id = (opts.type || 'Entity') + ':' + Math.round(Math.random() * 0xFFFFFFFF).toString(16)
@@ -72,11 +64,28 @@ class Entity
     @collide = @init_collide()
     @collide.entity = this
 
-  init_collide: -> collide.AABB_cwh(@position, @radius*2, @radius*2, { flags: entity.PHYSICAL | entity.VISIBLE })
-  update_collide: -> @collide.update_cwh(@position, @radius*2, @radius*2)
+  update_physics: physics.standard
+
+  render: (o, ctx) ->
+    (render[@type.toLowerCase()] ? render.debug)(o, ctx)
+
+  prerender: render.prerender
+
+  postrender: render.postrender
+
+  init_collide: ->
+    collide.AABB_cwh(@position, @radius*2, @radius*2, { flags: entity.PHYSICAL | entity.VISIBLE })
+
+  update_collide: ->
+    @collide.update_cwh(@position, @radius*2, @radius*2)
+
   simulate: (dt) ->
-  rotate: (theta) -> @rotation += rangewrap(theta, 2*Math.PI)
+
+  rotate: (theta) ->
+    @rotation += rangewrap(theta, 2*Math.PI)
+
   spawn: ->
+
   kill: ->
     @remove_me = true
     pubsub.publish('killed', @id)
@@ -103,21 +112,24 @@ class Entity
     @simulate(dt, sim)
     @update_collide(dt, sim)
 
-entity.Projectile = class extends Entity
-  constructor: (opts) ->
-    super opts
-    @age = 0
 
+entity.Projectile = class extends Entity
   initial_velocity = 300
   type: 'Projectile'
   damage: 25
   radius: 1
-
   lifespan: 2.0
   flags: entity.SPAWN_CLIENT | entity.SPAWN_SERVER
 
-  init_collide: -> collide.Point(@position, { flags: entity.PHYSICAL | entity.VISIBLE })
-  update_collide: -> @collide.update_point(@position)
+  constructor: (opts) ->
+    super opts
+    @age = 0
+
+  init_collide: ->
+    collide.Point(@position, { flags: entity.PHYSICAL | entity.VISIBLE })
+
+  update_collide: ->
+    @collide.update_point(@position)
 
   simulate: (dt) ->
     @age += dt
@@ -127,14 +139,14 @@ entity.Projectile = class extends Entity
     @velocity = vec2.add(@velocity, mat2.transform(mat2.rotate(@rotation), [0, initial_velocity]))
 
   kill: ->
-    @remove_me = true
+    super
     @sim.spawn({ type: 'Explosion', position: @position }, false)
 
-entity.Explosion = class extends Entity
-  constructor: (opts) ->
-    super opts
-    @render_radius = 1
+  collide_player: (player) ->
+    @sim.kill(@id, true)
+    player.damage(@damage, @owner)
 
+entity.Explosion = class extends Entity
   type: 'Explosion'
   age: 0
   lifespan: Math.random() * 0.75 + 0.25
@@ -142,7 +154,13 @@ entity.Explosion = class extends Entity
   radius: 0
   flags: entity.SPAWN_CLIENT
 
-  init_collide: -> collide.Point(@position, { flags: entity.VISIBLE })
+  constructor: (opts) ->
+    super opts
+    @render_radius = 1
+
+  init_collide: ->
+    collide.Point(@position, { flags: entity.VISIBLE })
+
   update_collide: ->
 
   simulate: (dt) ->
@@ -152,19 +170,19 @@ entity.Explosion = class extends Entity
 entity.Player = class extends Entity
   type: 'Player'
   flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT
-
   heal_rate: 10
   rotate_speed: 4.0
   thrust: 500.0
   reverse_thrust: 250.0
-
-  # physics
   drag_coefficient: 0.01
-
-  # collide
   radius: 8
 
   autofire_rate = 250
+
+  calculate_powerup_flags = (powerups) ->
+    flags = 0x0
+    _.each(powerups, (pu) -> flags = (flags | pu.flags))
+    flags
 
   constructor: (opts) ->
     super opts
@@ -176,11 +194,6 @@ entity.Player = class extends Entity
     @powerups = {}
     @projectile = 'Projectile'
     
-  calculate_powerup_flags = (powerups) ->
-    flags = 0x0
-    _.each(powerups, (pu) -> flags = (flags | pu.flags))
-    flags
-
   handle_input: (input, dt) ->
     @rotate(-@rotate_speed * dt) if (input.is_pressed(37))
     @rotate( @rotate_speed * dt) if (input.is_pressed(39))
@@ -256,14 +269,18 @@ entity.Player = class extends Entity
     delete @powerups[powerup_type]
     @powerup_flags = calculate_powerup_flags(@powerups)
 
+
 entity.powerup = class extends Entity
   type: 'powerup'
   powerup_type: null
   radius: 2
   flags: entity.SPAWN_SERVER
 
-  init_collide: -> collide.Point(@position, { flags: entity.VISIBLE | entity.PHYSICAL })
+  init_collide: ->
+    collide.Point(@position, { flags: entity.VISIBLE | entity.PHYSICAL })
+
   update_collide: ->
+
   collide_player: (player) ->
     player.add_powerup(@powerup_type)
     @kill()
@@ -295,24 +312,19 @@ PU_NONAGUN      = 0x0008
 
 entity.powerups =
   create: (powerup_type) ->
-    _.extend({}, entity.powerups[powerup_type])
+    _.extend({ ttl: 10 }, entity.powerups[powerup_type])
   doublerate:
     flags: PU_DOUBLERATE
     type: 'doublerate'
-    ttl: 10
   doublespread:
     flags: PU_DOUBLESPREAD
     type: 'doublespread'
-    ttl: 10
   triplespread:
     type: 'triplespread'
     flags: PU_TRIPLESPREAD
-    ttl: 10
   nonagun:
     type: 'nonagun'
     flags: PU_NONAGUN
-    ttl: 10
   awesomeness:
     type: 'awesomeness'
     flags: PU_DOUBLERATE | PU_NONAGUN
-    ttl: 10

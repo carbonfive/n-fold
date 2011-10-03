@@ -1,10 +1,7 @@
 input = (->this.input = {})()
 
 input.InputManager = ->
-
   keys = []
-
-  # mouse
   last_x = 0
   last_y = 0
   cur_x = 0
@@ -12,7 +9,6 @@ input.InputManager = ->
 
   $(document).keydown((e) -> keys[e.keyCode] = true)
   $(document).keyup((e) -> keys[e.keyCode] = false)
-
   $(document).mousemove (e) ->
     cur_x = e.pageX
     cur_y = e.pageY
