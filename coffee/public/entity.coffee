@@ -1,4 +1,4 @@
-entity = exports ? (->@entity={})()
+entity = exports ? (window.entity={})
 
 if exports?
   (->
@@ -113,7 +113,7 @@ class Entity
     @update_collide(dt, sim)
 
 
-entity.Projectile = class extends Entity
+class entity.Projectile extends Entity
   initial_velocity = 300
   type: 'Projectile'
   damage: 25
@@ -144,7 +144,7 @@ entity.Projectile = class extends Entity
 
   collide_player: (player) ->
     @sim.kill(@id, true)
-    player.damage(@damage, @owner)
+    player.damage(@damage, @owner_id)
 
 entity.Explosion = class extends Entity
   type: 'Explosion'
@@ -167,7 +167,7 @@ entity.Explosion = class extends Entity
     @age += dt
     if (@age >= @lifespan) then @kill() else @render_radius += @expansion_rate * dt
 
-entity.Player = class extends Entity
+class entity.Player extends Entity
   type: 'Player'
   flags: entity.COLLIDE_SERVER | entity.SPAWN_SERVER | entity.SPAWN_CLIENT
   heal_rate: 10
@@ -189,7 +189,7 @@ entity.Player = class extends Entity
     @last_fire = 0
     @health = 100
     @max_health = 100
-    @name = 'player'
+    @name ?= 'player'
     @powerup_flags = 0x0
     @powerups = {}
     @projectile = 'Projectile'
@@ -212,7 +212,7 @@ entity.Player = class extends Entity
   fire: ->
     opts =
       type: @projectile
-      owner: @id
+      owner_id: @id
       position: @position
       velocity: @velocity
       rotation: @rotation
@@ -250,10 +250,11 @@ entity.Player = class extends Entity
       removed_powerups.push(pu) if pu.ttl <= 0
     _.each(removed_powerups, ((pu) -> @remove_powerup(pu.type)), this)
 
-  damage: (amount, owner) ->
+  damage: (amount, owner_id) ->
     @health -= amount
     if (@health <= 0)
       @kill()
+      pubsub.publish("player_killed", { killer_id: owner_id, victim_id: @id })
     else
       pubsub.publish('damage', { entity: this, amount: amount })
 

@@ -16,12 +16,24 @@ _.extend simulation,
 simulation.Simulation = (input_manager, opts) ->
 
   world = {}
+  scores = {}
   collidees = []
   callbacks = []
   last_sim_time = 0
   world_bounds = collide.AABB(0, 0, 400, 400)
 
-  # move this pubsub crap to network module
+  get_score = (entity_id) ->
+    scores[entity_id] ?=
+      kills: 0
+      hits: 0
+      shots: 0
+
+  pubsub.subscribe "player_killed", (data) ->
+    get_score(data.killer_id).kills += 1
+    sim.net.broadcast "chat",
+      sender: "server"
+      text: "Player '#{world[data.killer_id].name}' just pwned '#{world[data.victim_id].name}'.  #{get_score(data.killer_id).kills} kills."
+
   pubsub.subscribe 'damage', (data) ->
     sim.net.broadcast 'entity_update',
       id: data.entity.id
@@ -98,14 +110,14 @@ simulation.Simulation = (input_manager, opts) ->
       this.broadcast_entities = []
       last_sim_time = start_time
 
-    check_collisions: (players) ->
+    check_collisions: (entities) ->
       self = this
-      _.each players, (player) ->
-        self.quadtree.each_object player.collide, (collidee) ->
+      _.each entities, (entity) ->
+        self.quadtree.each_object entity.collide, (collidee) ->
           e = collidee.entity
-          handler = e[('collide_' + player.type).toLowerCase()]
-          if handler? && e != player && e.owner != player.id
-            handler.call(e, player)
+          handler = e[('collide_' + entity.type).toLowerCase()]
+          if handler? && e != entity && e.owner_id != entity.id
+            handler.call(e, entity)
 
     find_entity: (id) ->
       world[id] || null
